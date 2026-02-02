@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}VideoHUB - Главная{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <div class="hero-content">
+        <h1>Смотри, загружай, делись</h1>
+        <p>VideoHUB - платформа для обмена видео контентом</p>
+        {% if not current_user.is_authenticated %}
+            <div class="hero-buttons">
+                <a href="{{ url_for('register') }}" class="btn btn-primary btn-large">Присоединиться</a>
+                <a href="{{ url_for('login') }}" class="btn btn-secondary btn-large">Войти</a>
+            </div>
+        {% else %}
+            <a href="{{ url_for('upload') }}" class="btn btn-primary btn-large">
+                <i class="fas fa-upload"></i> Загрузить видео
+            </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Рекомендации -->
+{% if recommended_videos %}
+<section class="video-section">
+    <h2><i class="fas fa-star"></i> Рекомендации для вас</h2>
+    <div class="video-grid">
+        {% for video in recommended_videos %}
+        <div class="video-card">
+            <a href="{{ url_for('video_detail', video_id=video.id) }}" class="video-thumbnail">
+                <img src="{{ url_for('uploaded_thumbnail', filename=video.thumbnail) }}" alt="{{ video.title }}">
+                <div class="video-duration">{{ video.duration }}</div>
+                <div class="video-overlay">
+                    <i class="fas fa-play"></i>
+                </div>
+            </a>
+            <div class="video-info">
+                <h3 class="video-title">
+                    <a href="{{ url_for('video_detail', video_id=video.id) }}">{{ video.title }}</a>
+                </h3>
+                <div class="video-meta">
+                    <a href="{{ url_for('profile', username=video.author.username) }}" class="video-author">
+                        {{ video.author.username }}
+                    </a>
+                    <span class="video-views">
+                        <i class="fas fa-eye"></i> {{ video.views }}
+                    </span>
+                    <span class="video-date">
+                        {{ video.created_at.strftime('%d.%m.%Y') }}
+                    </span>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+<!-- Популярные видео -->
+<section class="video-section">
+    <h2><i class="fas fa-fire"></i> Популярное сейчас</h2>
+    <div class="video-grid">
+        {% for video in popular_videos %}
+        <div class="video-card">
+            <a href="{{ url_for('video_detail', video_id=video.id) }}" class="video-thumbnail">
+                <img src="{{ url_for('uploaded_thumbnail', filename=video.thumbnail) }}" alt="{{ video.title }}">
+                <div class="video-duration">{{ video.duration }}</div>
+                <div class="video-overlay">
+                    <i class="fas fa-play"></i>
+                </div>
+            </a>
+            <div class="video-info">
+                <h3 class="video-title">
+                    <a href="{{ url_for('video_detail', video_id=video.id) }}">{{ video.title }}</a>
+                </h3>
+                <div class="video-meta">
+                    <a href="{{ url_for('profile', username=video.author.username) }}" class="video-author">
+                        {{ video.author.username }}
+                    </a>
+                    <span class="video-views">
+                        <i class="fas fa-eye"></i> {{ video.views }}
+                    </span>
+                    <span class="video-date">
+                        {{ video.created_at.strftime('%d.%m.%Y') }}
+                    </span>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+<!-- Новые видео -->
+<section class="video-section">
+    <h2><i class="fas fa-clock"></i> Недавно загружено</h2>
+    <div class="video-grid">
+        {% for video in new_videos %}
+        <div class="video-card">
+            <a href="{{ url_for('video_detail', video_id=video.id) }}" class="video-thumbnail">
+                <img src="{{ url_for('uploaded_thumbnail', filename=video.thumbnail) }}" alt="{{ video.title }}">
+                <div class="video-duration">{{ video.duration }}</div>
+                <div class="video-overlay">
+                    <i class="fas fa-play"></i>
+                </div>
+            </a>
+            <div class="video-info">
+                <h3 class="video-title">
+                    <a href="{{ url_for('video_detail', video_id=video.id) }}">{{ video.title }}</a>
+                </h3>
+                <div class="video-meta">
+                    <a href="{{ url_for('profile', username=video.author.username) }}" class="video-author">
+                        {{ video.author.username }}
+                    </a>
+                    <span class="video-views">
+                        <i class="fas fa-eye"></i> {{ video.views }}
+                    </span>
+                    <span class="video-date">
+                        {{ video.created_at.strftime('%d.%m.%Y') }}
+                    </span>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

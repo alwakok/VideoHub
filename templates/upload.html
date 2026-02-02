@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}VideoHUB - Загрузить видео{% endblock %}
+
+{% block content %}
+<div class="upload-page">
+    <h1 class="page-title"><i class="fas fa-upload"></i> Загрузить видео</h1>
+
+    <div class="upload-container">
+        <form id="upload-form" method="POST" enctype="multipart/form-data">
+            <div class="upload-area" id="upload-area">
+                <div class="upload-icon">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                </div>
+                <h3>Перетащите видео сюда</h3>
+                <p>или</p>
+                <div class="file-input-wrapper">
+                    <input type="file" name="video" id="video-input" accept="video/*" required>
+                    <label for="video-input" class="btn btn-primary">Выбрать файл</label>
+                </div>
+                <p class="file-info">Максимальный размер: 500MB. Форматы: MP4, AVI, MOV, MKV, WEBM</p>
+                <div id="selected-file"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="title">Название видео *</label>
+                <input type="text" id="title" name="title" required maxlength="200" placeholder="Введите название видео">
+            </div>
+
+            <div class="form-group">
+                <label for="description">Описание</label>
+                <textarea id="description" name="description" rows="4" placeholder="Опишите ваше видео..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="thumbnail">Обложка видео</label>
+                <input type="file" id="thumbnail" name="thumbnail" accept="image/*">
+                <p class="help-text">Необязательно. Если не выбрать, будет использована стандартная обложка.</p>
+            </div>
+
+            <div class="form-group">
+                <label for="tags">Теги</label>
+                <input type="text" id="tags" name="tags" placeholder="музыка, развлечения, обучение">
+                <p class="help-text">Введите теги через запятую</p>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary btn-large">
+                    <i class="fas fa-upload"></i> Загрузить видео
+                </button>
+                <a href="{{ url_for('index') }}" class="btn btn-secondary">Отмена</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const videoInput = document.getElementById('video-input');
+    const uploadArea = document.getElementById('upload-area');
+    const selectedFileDiv = document.getElementById('selected-file');
+
+    // Обработка drag & drop
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    });
+
+    uploadArea.addEventListener('dragleave', () => {
+        uploadArea.classList.remove('dragover');
+    });
+
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+
+        if (e.dataTransfer.files.length) {
+            videoInput.files = e.dataTransfer.files;
+            updateSelectedFile(e.dataTransfer.files[0]);
+        }
+    });
+
+    // Обработка выбора файла через кнопку
+    videoInput.addEventListener('change', function() {
+        if (this.files.length) {
+            updateSelectedFile(this.files[0]);
+        }
+    });
+
+    function updateSelectedFile(file) {
+        selectedFileDiv.innerHTML = `
+            <div class="selected-file-info">
+                <i class="fas fa-file-video"></i>
+                <div>
+                    <strong>${file.name}</strong>
+                    <p>${(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                </div>
+            </div>
+        `;
+    }
+
+    // Предотвращение отправки формы без файла
+    document.getElementById('upload-form').addEventListener('submit', function(e) {
+        if (!videoInput.files.length) {
+            e.preventDefault();
+            alert('Пожалуйста, выберите видео файл');
+        }
+    });
+});
+</script>
+{% endblock %}
