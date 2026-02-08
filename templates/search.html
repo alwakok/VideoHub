@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}VideoHUB - Поиск{% endblock %}
+
+{% block content %}
+<div class="search-page">
+    <div class="search-header">
+        <h1><i class="fas fa-search"></i> Поиск видео</h1>
+
+        {% if query %}
+            <div class="search-results-info">
+                <p>Результаты поиска для: <strong>"{{ query }}"</strong></p>
+                <p>Найдено видео: <strong>{{ videos|length }}</strong></p>
+            </div>
+        {% else %}
+            <div class="search-intro">
+                <p>Введите запрос в поисковую строку выше, чтобы найти интересующие вас видео</p>
+            </div>
+        {% endif %}
+    </div>
+
+    {% if query %}
+        {% if videos %}
+            <div class="search-results">
+                <div class="video-grid">
+                    {% for video in videos %}
+                    <div class="video-card">
+                        <a href="{{ url_for('video_detail', video_id=video.id) }}" class="video-thumbnail">
+                            <img src="{{ url_for('uploaded_thumbnail', filename=video.thumbnail) }}" alt="{{ video.title }}">
+                            <div class="video-duration">{{ video.duration }}</div>
+                            <div class="video-overlay">
+                                <i class="fas fa-play"></i>
+                            </div>
+                        </a>
+                        <div class="video-info">
+                            <h3 class="video-title">
+                                <a href="{{ url_for('video_detail', video_id=video.id) }}">{{ video.title }}</a>
+                            </h3>
+                            <div class="video-meta">
+                                <a href="{{ url_for('profile', username=video.author.username) }}" class="video-author">
+                                    {{ video.author.username }}
+                                </a>
+                                <span class="video-views">
+                                    <i class="fas fa-eye"></i> {{ video.views }}
+                                </span>
+                                <span class="video-date">
+                                    {{ video.created_at.strftime('%d.%m.%Y') }}
+                                </span>
+                            </div>
+                            {% if video.description %}
+                            <p class="video-description-preview">
+                                {{ video.description|truncate(100) }}
+                            </p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% else %}
+            <div class="no-results">
+                <div class="no-results-content">
+                    <i class="fas fa-search fa-3x"></i>
+                    <h3>Ничего не найдено</h3>
+                    <p>По запросу <strong>"{{ query }}"</strong> видео не найдены</p>
+                    <p class="no-results-hint">Попробуйте изменить поисковый запрос или использовать другие ключевые слова</p>
+                    <div class="no-results-actions">
+                        <div class="no-results-actions">
+                            <a href="{{ url_for('index') }}" class="btn btn-primary">
+                                <i class="fas fa-home"></i> Вернуться на главную
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    {% else %}
+        <div class="search-tips">
+            <h3><i class="fas fa-lightbulb"></i> Советы по поиску</h3>
+            <div class="tips-grid">
+                <div class="tip-card">
+                    <i class="fas fa-keyboard"></i>
+                    <h4>Используйте ключевые слова</h4>
+                    <p>Введите тему или название видео</p>
+                </div>
+                <div class="tip-card">
+                    <i class="fas fa-hashtag"></i>
+                    <h4>Ищите по тегам</h4>
+                    <p>Например: музыка, обучение, игры</p>
+                </div>
+                <div class="tip-card">
+                    <i class="fas fa-user"></i>
+                    <h4>Найдите автора</h4>
+                    <p>Введите имя пользователя</p>
+                </div>
+                <div class="tip-card">
+                    <i class="fas fa-filter"></i>
+                    <h4>Будьте конкретны</h4>
+                    <p>Чем точнее запрос, тем лучше результаты</p>
+                </div>
+            </div>
+
+            <div class="popular-searches">
+                <h4><i class="fas fa-fire"></i> Популярные запросы</h4>
+                <div class="popular-tags">
+                    <a href="{{ url_for('search') }}?q=музыка" class="tag">музыка</a>
+                    <a href="{{ url_for('search') }}?q=игры" class="tag">игры</a>
+                    <a href="{{ url_for('search') }}?q=обучение" class="tag">обучение</a>
+                    <a href="{{ url_for('search') }}?q=развлечения" class="tag">развлечения</a>
+                    <a href="{{ url_for('search') }}?q=спорт" class="tag">спорт</a>
+                    <a href="{{ url_for('search') }}?q=путешествия" class="tag">путешествия</a>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Фокус на поиск в шапке, если есть запрос
+    const searchInput = document.querySelector('.search-bar input[name="q"]');
+    if (searchInput) {
+        searchInput.value = "{{ query|safe }}";
+        searchInput.focus();
+        searchInput.selectionStart = searchInput.selectionEnd = searchInput.value.length;
+    }
+});
+</script>
+{% endblock %}
