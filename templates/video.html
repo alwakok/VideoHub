@@ -1,0 +1,301 @@
+{% extends "base.html" %}
+
+{% block title %}{{ video.title }} - VideoHUB{% endblock %}
+
+{% block content %}
+<div class="video-page">
+    <div class="video-player-section">
+        <div class="video-player-container">
+            <video id="main-video" controls poster="{{ url_for('uploaded_thumbnail', filename=video.thumbnail) }}">
+                <source src="{{ url_for('uploaded_video', filename=video.filename) }}" type="video/mp4">
+                Ваш браузер не поддерживает видео тег.
+            </video>
+        </div>
+
+        <div class="video-info-container">
+            <h1 class="video-title-main">{{ video.title }}</h1>
+
+            <div class="video-stats">
+                <div class="video-views-count">
+                    <i class="fas fa-eye"></i> {{ video.views }} просмотров
+                </div>
+                <div class="video-date-posted">
+                    <i class="fas fa-calendar"></i> {{ video.created_at.strftime('%d.%m.%Y') }}
+                </div>
+            </div>
+
+            <div class="video-actions">
+                <button id="like-btn" class="btn-action {% if user_liked %}liked{% endif %}" data-video-id="{{ video.id }}">
+                    <i class="fas fa-heart"></i>
+                    <span id="like-count">{{ video.likes|length }}</span>
+                </button>
+                <button class="btn-action" id="share-btn">
+                    <i class="fas fa-share"></i> Поделиться
+                </button>
+                {% if current_user.is_authenticated and current_user.id == video.user_id %}
+                    <a href="{{ url_for('edit_video', video_id=video.id) }}" class="btn-action">
+                        <i class="fas fa-edit"></i> Редактировать
+                    </a>
+                {% endif %}
+            </div>
+
+            <div class="video-description">
+                <h3>Описание</h3>
+                <p>{{ video.description or 'Нет описания' }}</p>
+                {% if video.tags %}
+                <div class="video-tags">
+                    {% for tag in video.tags.split(',') %}
+                        <a href="{{ url_for('search') }}?q={{ tag.strip() }}" class="tag">{{ tag.strip() }}</a>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="video-author-info">
+                <a href="{{ url_for('profile', username=video.author.username) }}" class="author-avatar">
+                    <img src="{{ url_for('uploaded_thumbnail', filename=video.author.avatar) }}"
+                         alt="{{ video.author.username }}"
+                         onerror="this.src='{{ url_for('uploaded_thumbnail', filename='default_avatar.png') }}'">
+                </a>
+                <div class="author-details">
+                    <a href="{{ url_for('profile', username=video.author.username) }}" class="author-name">
+                        {{ video.author.username }}
+                    </a>
+                    <p class="author-subscribers">Подписчиков: 0</p>
+                </div>
+                {% if current_user.is_authenticated and current_user.id != video.user_id %}
+                    <button class="btn btn-primary btn-small subscribe-btn">Подписаться</button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Комментарии -->
+    <div class="comments-section">
+        <h3><i class="fas fa-comments"></i> Комментарии <span id="comments-count">{{ comments|length }}</span></h3>
+
+        {% if current_user.is_authenticated %}
+        <div class="add-comment">
+            <form id="comment-form" data-video-id="{{ video.id }}">
+                <div class="comment-input-group">
+                    <div class="comment-avatar">
+                        <img src="{{ url_for('uploaded_thumbnail', filename=current_user.avatar) }}"
+                             alt="{{ current_user.username }}"
+                             onerror="this.src='{{ url_for('uploaded_thumbnail', filename='default_avatar.png') }}'">
+                    </div>
+                    <input type="text" id="comment-input" placeholder="Добавьте комментарий..." required>
+                    <button type="submit" class="btn btn-primary">Отправить</button>
+                </div>
+            </form>
+        </div>
+        {% else %}
+        <div class="login-to-comment">
+            <a href="{{ url_for('login') }}">Войдите</a>, чтобы оставить комментарий
+        </div>
+        {% endif %}
+
+        <div class="comments-list" id="comments-list">
+            {% for comment in comments %}
+            <div class="comment-item" data-comment-id="{{ comment.id }}">
+                <a href="{{ url_for('profile', username=comment.author.username) }}" class="comment-avatar">
+                    <img src="{{ url_for('uploaded_thumbnail', filename=comment.author.avatar) }}"
+                         alt="{{ comment.author.username }}"
+                         onerror="this.src='{{ url_for('uploaded_thumbnail', filename='default_avatar.png') }}'">
+                </a>
+                <div class="comment-content">
+                    <div class="comment-header">
+                        <a href="{{ url_for('profile', username=comment.author.username) }}" class="comment-author">
+                            {{ comment.author.username }}
+                        </a>
+                        <span class="comment-date">{{ comment.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
+                    </div>
+                    <p class="comment-text">{{ comment.content }}</p>
+                </div>
+            </div>
+            {% else %}
+            <div class="no-comments">
+                <p>Пока нет комментариев. Будьте первым!</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Похожие видео -->
+    {% if similar_videos %}
+    <div class="similar-videos">
+        <h3><i class="fas fa-film"></i> Похожие видео</h3>
+        <div class="video-grid">
+            {% for similar_video in similar_videos %}
+            <div class="video-card">
+                <a href="{{ url_for('video_detail', video_id=similar_video.id) }}" class="video-thumbnail">
+                    <img src="{{ url_for('uploaded_thumbnail', filename=similar_video.thumbnail) }}" alt="{{ similar_video.title }}">
+                    <div class="video-duration">{{ similar_video.duration }}</div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="{{ url_for('video_detail', video_id=similar_video.id) }}">{{ similar_video.title }}</a>
+                    </h3>
+                    <div class="video-meta">
+                        <a href="{{ url_for('profile', username=similar_video.author.username) }}" class="video-author">
+                            {{ similar_video.author.username }}
+                        </a>
+                        <span class="video-views">
+                            <i class="fas fa-eye"></i> {{ similar_video.views }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Лайки
+    const likeBtn = document.getElementById('like-btn');
+    const likeCount = document.getElementById('like-count');
+
+    likeBtn.addEventListener('click', function() {
+        const videoId = this.getAttribute('data-video-id');
+
+        fetch(`/like/${videoId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.liked) {
+                likeBtn.classList.add('liked');
+            } else {
+                likeBtn.classList.remove('liked');
+            }
+            likeCount.textContent = data.like_count;
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+    });
+
+    // Комментарии
+    const commentForm = document.getElementById('comment-form');
+    if (commentForm) {
+        let isSubmitting = false; // Флаг для предотвращения двойной отправки
+
+        commentForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            if (isSubmitting) return; // Если уже отправляется, выходим
+
+            const videoId = this.getAttribute('data-video-id');
+            const commentInput = document.getElementById('comment-input');
+            const commentText = commentInput.value.trim();
+            const submitButton = this.querySelector('button[type="submit"]');
+
+            if (!commentText) {
+                return;
+            }
+
+            isSubmitting = true; // Устанавливаем флаг
+
+            // Блокируем кнопку
+            const originalText = submitButton.innerHTML;
+            submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Отправка...';
+            submitButton.disabled = true;
+
+            const formData = new FormData();
+            formData.append('content', commentText);
+
+            fetch(`/comment/${videoId}`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    // Проверяем, не добавлен ли уже этот комментарий
+                    const existingComment = document.querySelector(`[data-comment-id="${data.comment.id}"]`);
+                    if (existingComment) {
+                        console.log('Комментарий уже существует в DOM');
+                        return;
+                    }
+
+                    // Добавляем новый комментарий в список
+                    const commentsList = document.getElementById('comments-list');
+                    const commentsCount = document.getElementById('comments-count');
+
+                    // Создаем новый элемент комментария
+                    const commentItem = document.createElement('div');
+                    commentItem.className = 'comment-item';
+                    commentItem.setAttribute('data-comment-id', data.comment.id);
+                    commentItem.innerHTML = `
+                        <a href="/profile/${data.comment.author.username}" class="comment-avatar">
+                            <img src="${data.comment.author.avatar}" alt="${data.comment.author.username}"
+                                 onerror="this.src='{{ url_for('uploaded_thumbnail', filename='default_avatar.png') }}'">
+                        </a>
+                        <div class="comment-content">
+                            <div class="comment-header">
+                                <a href="/profile/${data.comment.author.username}" class="comment-author">
+                                    ${data.comment.author.username}
+                                </a>
+                                <span class="comment-date">${data.comment.created_at}</span>
+                            </div>
+                            <p class="comment-text">${data.comment.content}</p>
+                        </div>
+                    `;
+
+                    // Если есть сообщение "нет комментариев", удаляем его
+                    const noComments = commentsList.querySelector('.no-comments');
+                    if (noComments) {
+                        noComments.remove();
+                    }
+
+                    // Добавляем комментарий в начало списка
+                    commentsList.insertBefore(commentItem, commentsList.firstChild);
+
+                    // Обновляем счетчик комментариев
+                    commentsCount.textContent = parseInt(commentsCount.textContent) + 1;
+
+                    // Очищаем поле ввода
+                    commentInput.value = '';
+                } else {
+                    console.error('Error adding comment:', data.error);
+                    alert('Ошибка при добавлении комментария: ' + (data.error || 'Неизвестная ошибка'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Ошибка сети. Попробуйте еще раз.');
+            })
+            .finally(() => {
+                // Разблокируем форму
+                isSubmitting = false;
+                submitButton.innerHTML = originalText;
+                submitButton.disabled = false;
+            });
+        });
+    }
+
+    // Поделиться
+    const shareBtn = document.getElementById('share-btn');
+    shareBtn.addEventListener('click', function() {
+        const url = window.location.href;
+        navigator.clipboard.writeText(url)
+            .then(() => {
+                alert('Ссылка скопирована в буфер обмена!');
+            })
+            .catch(err => {
+                console.error('Ошибка при копировании: ', err);
+            });
+    });
+});
+</script>
+{% endblock %}
