@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}VideoHUB - История просмотров{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-history"></i> История просмотров</h1>
+    <p>Видео, которые вы недавно смотрели</p>
+</div>
+
+{% if current_user.is_authenticated %}
+    {% if videos %}
+        <div class="video-grid">
+            {% for video in videos %}
+            <div class="video-card">
+                <a href="{{ url_for('video_detail', video_id=video.id) }}" class="video-thumbnail">
+                    <img src="{{ url_for('uploaded_thumbnail', filename=video.thumbnail) }}" alt="{{ video.title }}">
+                    <div class="video-duration">{{ video.duration }}</div>
+                    <div class="video-overlay">
+                        <i class="fas fa-play"></i>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="{{ url_for('video_detail', video_id=video.id) }}">{{ video.title }}</a>
+                    </h3>
+                    <div class="video-meta">
+                        <a href="{{ url_for('profile', username=video.author.username) }}" class="video-author">
+                            {{ video.author.username }}
+                        </a>
+                        <span class="video-views">
+                            <i class="fas fa-eye"></i> {{ video.views }}
+                        </span>
+                        <span class="video-date">
+                            {{ video.created_at.strftime('%d.%m.%Y') }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <i class="fas fa-history fa-3x"></i>
+            <h3>История просмотров пуста</h3>
+            <p>Начните смотреть видео, и они появятся здесь</p>
+            <a href="{{ url_for('index') }}" class="btn btn-primary">
+                <i class="fas fa-search"></i> Найти видео
+            </a>
+        </div>
+    {% endif %}
+{% else %}
+<div class="empty-state">
+    <i class="fas fa-history fa-3x"></i>
+    <h3>Войдите для доступа к истории просмотров</h3>
+    <p>Авторизуйтесь, чтобы видеть историю просмотренных видео</p>
+    <a href="{{ url_for('login') }}" class="btn btn-primary">
+        <i class="fas fa-sign-in-alt"></i> Войти
+    </a>
+</div>
+{% endif %}
+{% endblock %}

@@ -27,6 +27,12 @@
             </div>
 
             <div class="nav-links">
+                <!-- Мобильный поиск -->
+                <button class="mobile-search-toggle" id="mobile-search-toggle" style="display: none;">
+                    <i class="fas fa-search"></i>
+                </button>
+
+                <!-- Мобильное меню -->
                 {% if current_user.is_authenticated %}
                     <div class="user-menu">
                         <a href="{{ url_for('profile', username=current_user.username) }}" class="user-avatar">
@@ -44,6 +50,10 @@
                             <a href="{{ url_for('upload') }}">
                                 <i class="fas fa-upload"></i> Загрузить видео
                             </a>
+                            <button class="theme-toggle" onclick="toggleTheme()">
+                                <i class="fas fa-moon"></i>
+                                <span>Ночная тема</span>
+                            </button>
                             <a href="{{ url_for('logout') }}">
                                 <i class="fas fa-sign-out-alt"></i> Выйти
                             </a>
@@ -55,7 +65,129 @@
                 {% endif %}
             </div>
         </div>
+
+        <!-- Мобильный поиск (скрытый по умолчанию) -->
+        <div class="mobile-search" id="mobile-search">
+            <form action="{{ url_for('search') }}" method="GET">
+                <input type="text" name="q" placeholder="Поиск видео..." value="{{ request.args.get('q', '') }}">
+                <button type="submit"><i class="fas fa-search"></i></button>
+            </form>
+        </div>
     </nav>
+
+    <!-- Боковая панель -->
+    {% if request.endpoint != 'video_detail' %}
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-content">
+            <div class="sidebar-section">
+                <h3 class="sidebar-title">Навигация</h3>
+                <ul class="sidebar-menu">
+                    <li>
+                        <a href="{{ url_for('index') }}" class="sidebar-link {% if request.endpoint == 'index' %}active{% endif %}">
+                            <i class="fas fa-home"></i>
+                            <span>Главная</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" class="sidebar-link">
+                            <i class="fas fa-users"></i>
+                            <span>Совместный просмотр</span>
+                            <span class="coming-soon">Скоро</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <h3 class="sidebar-title">Вы</h3>
+                <ul class="sidebar-menu">
+                    {% if current_user.is_authenticated %}
+                        <li>
+                            <a href="{{ url_for('watch_history') }}" class="sidebar-link">
+                                <i class="fas fa-history"></i>
+                                <span>История</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('playlists') }}" class="sidebar-link">
+                                <i class="fas fa-list"></i>
+                                <span>Плейлисты</span>
+                                {% if current_user.playlists %}
+                                <span class="badge">{{ current_user.playlists|length }}</span>
+                                {% endif %}
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('favorites') }}" class="sidebar-link">
+                                <i class="fas fa-star"></i>
+                                <span>Избранное</span>
+                                {% if current_user.favorites %}
+                                <span class="badge">{{ current_user.favorites|length }}</span>
+                                {% endif %}
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('subscriptions') }}" class="sidebar-link">
+                                <i class="fas fa-user-friends"></i>
+                                <span>Подписки</span>
+                            </a>
+                        </li>
+                    {% else %}
+                        <li>
+                            <a href="{{ url_for('login') }}" class="sidebar-link">
+                                <i class="fas fa-history"></i>
+                                <span>История</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('login') }}" class="sidebar-link">
+                                <i class="fas fa-list"></i>
+                                <span>Плейлисты</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('login') }}" class="sidebar-link">
+                                <i class="fas fa-star"></i>
+                                <span>Избранное</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('login') }}" class="sidebar-link">
+                                <i class="fas fa-user-friends"></i>
+                                <span>Подписки</span>
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+
+            {% if current_user.is_authenticated and current_user.playlists %}
+            <div class="sidebar-section">
+                <h3 class="sidebar-title">Ваши плейлисты</h3>
+                <ul class="sidebar-menu">
+                    {% for playlist in current_user.playlists[:5] %}
+                    <li>
+                        <a href="{{ url_for('playlist_detail', playlist_id=playlist.id) }}" class="sidebar-link">
+                            <i class="fas fa-music"></i>
+                            <span>{{ playlist.name }}</span>
+                            <span class="badge">{{ playlist.videos|length }}</span>
+                        </a>
+                    </li>
+                    {% endfor %}
+                    {% if current_user.playlists|length > 5 %}
+                    <li>
+                        <a href="{{ url_for('playlists') }}" class="sidebar-link">
+                            <i class="fas fa-ellipsis-h"></i>
+                            <span>Показать все</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+    </aside>
+    {% endif %}
 
     <!-- Флеш-сообщения -->
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -69,7 +201,7 @@
     {% endwith %}
 
     <!-- Основной контент -->
-    <main class="main-content">
+    <main class="main-content {% if request.endpoint == 'video_detail' %}video-page-content{% endif %}">
         <div class="container">
             {% block content %}{% endblock %}
         </div>
@@ -141,7 +273,107 @@
                 }
             });
         }
+
+        // Мобильный поиск
+        const mobileSearchToggle = document.getElementById('mobile-search-toggle');
+        const mobileSearch = document.getElementById('mobile-search');
+
+        if (mobileSearchToggle && mobileSearch) {
+            mobileSearchToggle.addEventListener('click', function() {
+                mobileSearch.classList.toggle('active');
+            });
+
+            // Скрываем поиск при клике вне его
+            document.addEventListener('click', function(e) {
+                if (!mobileSearch.contains(e.target) && !mobileSearchToggle.contains(e.target)) {
+                    mobileSearch.classList.remove('active');
+                }
+            });
+        }
+
+        // Показываем/скрываем мобильные элементы
+        function checkScreenSize() {
+            const mobileSearchToggle = document.getElementById('mobile-search-toggle');
+            const desktopSearch = document.querySelector('.search-bar');
+
+            if (window.innerWidth <= 768) {
+                if (mobileSearchToggle) mobileSearchToggle.style.display = 'flex';
+                if (desktopSearch) desktopSearch.style.display = 'none';
+            } else {
+                if (mobileSearchToggle) mobileSearchToggle.style.display = 'none';
+                if (desktopSearch) desktopSearch.style.display = 'block';
+                if (mobileSearch) mobileSearch.classList.remove('active');
+            }
+        }
+
+        checkScreenSize();
+        window.addEventListener('resize', checkScreenSize);
     });
+
+    // Загрузка сохраненной темы
+    document.addEventListener('DOMContentLoaded', function() {
+        // Загрузка сохраненной темы
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        if (savedTheme === 'dark') {
+            document.body.classList.add('dark-theme');
+            updateThemeIcon(true);
+        }
+
+        // Для мобильных устройств - мобильное меню
+        if (window.innerWidth <= 768) {
+            const mobileToggle = document.createElement('button');
+            mobileToggle.className = 'mobile-sidebar-toggle';
+            mobileToggle.innerHTML = '<i class="fas fa-bars"></i>';
+            mobileToggle.addEventListener('click', function() {
+                const sidebar = document.getElementById('sidebar');
+                if (sidebar) {
+                    sidebar.classList.toggle('active');
+                }
+            });
+
+            const navLinks = document.querySelector('.nav-links');
+            if (navLinks) {
+                navLinks.insertBefore(mobileToggle, navLinks.firstChild);
+            }
+        }
+    });
+
+    // Переключение темы
+    function toggleTheme() {
+        const body = document.body;
+        const isDarkTheme = body.classList.toggle('dark-theme');
+
+        // Сохраняем в localStorage
+        localStorage.setItem('theme', isDarkTheme ? 'dark' : 'light');
+
+        // Обновляем иконку
+        updateThemeIcon(isDarkTheme);
+
+        // Отправляем на сервер если пользователь авторизован
+        if (window.currentUser && window.currentUser.is_authenticated) {
+            fetch('/api/theme', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    theme: isDarkTheme ? 'dark' : 'light'
+                })
+            });
+        }
+    }
+
+    function updateThemeIcon(isDarkTheme) {
+        const themeIcons = document.querySelectorAll('.theme-toggle i');
+        themeIcons.forEach(icon => {
+            icon.className = isDarkTheme ? 'fas fa-sun' : 'fas fa-moon';
+        });
+
+        const themeTexts = document.querySelectorAll('.theme-toggle span');
+        themeTexts.forEach(text => {
+            text.textContent = isDarkTheme ? 'Дневная тема' : 'Ночная тема';
+        });
+    }
     </script>
 
     {% block scripts %}{% endblock %}

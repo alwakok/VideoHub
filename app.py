@@ -38,9 +38,16 @@ class User(UserMixin, db.Model):
     avatar = db.Column(db.String(200), default='default_avatar.png')
     bio = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    theme = db.Column(db.String(20), default='light')  # Добавляем поле для темы
     videos = db.relationship('Video', backref='author', lazy=True)
     likes = db.relationship('Like', backref='user', lazy=True)
     comments = db.relationship('Comment', backref='author', lazy=True)
+    playlists = db.relationship('Playlist', backref='user', lazy=True, cascade='all, delete-orphan')
+    favorites = db.relationship('Favorite', backref='user', lazy=True, cascade='all, delete-orphan')
+    watch_history = db.relationship('WatchHistory', backref='user', lazy=True, cascade='all, delete-orphan')
+    subscriptions = db.relationship('Subscription', foreign_keys='Subscription.subscriber_id', backref='subscriber',
+                                    lazy=True)
+    subscribers = db.relationship('Subscription', foreign_keys='Subscription.channel_id', backref='channel', lazy=True)
 
     def set_password(self, password):
         """Устанавливает хеш пароля"""
@@ -80,6 +87,49 @@ class Comment(db.Model):
     video_id = db.Column(db.Integer, db.ForeignKey('video.id'), nullable=False)
     content = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class Playlist(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    name = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    is_public = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    videos = db.relationship('PlaylistVideo', backref='playlist', lazy=True, cascade='all, delete-orphan')
+    thumbnail = db.Column(db.String(200), default='default-playlist.png')
+
+
+class PlaylistVideo(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    playlist_id = db.Column(db.Integer, db.ForeignKey('playlist.id'), nullable=False)
+    video_id = db.Column(db.Integer, db.ForeignKey('video.id'), nullable=False)
+    added_at = db.Column(db.DateTime, default=datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('playlist_id', 'video_id', name='unique_playlist_video'),)
+
+
+class Favorite(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    video_id = db.Column(db.Integer, db.ForeignKey('video.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('user_id', 'video_id', name='unique_favorite'),)
+
+
+class WatchHistory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    video_id = db.Column(db.Integer, db.ForeignKey('video.id'), nullable=False)
+    watched_at = db.Column(db.DateTime, default=datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('user_id', 'video_id', name='unique_watch_history'),)
+
+
+class Subscription(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    subscriber_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    channel_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('subscriber_id', 'channel_id', name='unique_subscription'),)
 
 
 @login_manager.user_loader
@@ -520,6 +570,7 @@ def add_comment(video_id):
         }
     })
 
+
 @app.route('/video/delete/<int:video_id>', methods=['POST'])
 @login_required
 def delete_video(video_id):
@@ -745,6 +796,175 @@ def search():
     return render_template('search.html', videos=videos, query=query)
 
 
+# Новые маршруты для плейлистов, избранного и истории
+
+@app.route('/api/theme', methods=['POST'])
+@login_required
+def update_theme():
+    data = request.get_json()
+    theme = data.get('theme', 'light')
+
+    if theme not in ['light', 'dark']:
+        return jsonify({'error': 'Invalid theme'}), 400
+
+    current_user.theme = theme
+    db.session.commit()
+
+    return jsonify({'success': True, 'theme': theme})
+
+
+@app.route('/favorites')
+@login_required
+def favorites():
+    favorites = Favorite.query.filter_by(user_id=current_user.id) \
+        .order_by(Favorite.created_at.desc()).all()
+    favorite_videos = [fav.video for fav in favorites]
+
+    return render_template('favorites.html', videos=favorite_videos)
+
+
+@app.route('/favorite/<int:video_id>', methods=['POST'])
+@login_required
+def toggle_favorite(video_id):
+    video = Video.query.get_or_404(video_id)
+
+    existing_fav = Favorite.query.filter_by(
+        user_id=current_user.id,
+        video_id=video_id
+    ).first()
+
+    if existing_fav:
+        db.session.delete(existing_fav)
+        favorited = False
+    else:
+        favorite = Favorite(user_id=current_user.id, video_id=video_id)
+        db.session.add(favorite)
+        favorited = True
+
+    db.session.commit()
+
+    return jsonify({
+        'favorited': favorited,
+        'favorite_count': Favorite.query.filter_by(video_id=video_id).count()
+    })
+
+
+@app.route('/playlists')
+@login_required
+def playlists():
+    return render_template('playlists.html', playlists=current_user.playlists)
+
+
+@app.route('/playlist/create', methods=['POST'])
+@login_required
+def create_playlist():
+    name = request.form.get('name', '').strip()
+    description = request.form.get('description', '').strip()
+    is_public = request.form.get('is_public', 'true') == 'true'
+
+    if not name:
+        return jsonify({'error': 'Название обязательно'}), 400
+
+    playlist = Playlist(
+        user_id=current_user.id,
+        name=name,
+        description=description,
+        is_public=is_public
+    )
+
+    db.session.add(playlist)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'playlist': {
+            'id': playlist.id,
+            'name': playlist.name,
+            'description': playlist.description
+        }
+    })
+
+
+@app.route('/playlist/<int:playlist_id>')
+@login_required
+def playlist_detail(playlist_id):
+    playlist = Playlist.query.get_or_404(playlist_id)
+
+    if playlist.user_id != current_user.id and not playlist.is_public:
+        flash('Этот плейлист приватный', 'error')
+        return redirect(url_for('playlists'))
+
+    return render_template('playlist_detail.html', playlist=playlist)
+
+
+@app.route('/playlist/<int:playlist_id>/add/<int:video_id>', methods=['POST'])
+@login_required
+def add_to_playlist(playlist_id, video_id):
+    playlist = Playlist.query.get_or_404(playlist_id)
+
+    if playlist.user_id != current_user.id:
+        return jsonify({'error': 'Недостаточно прав'}), 403
+
+    video = Video.query.get_or_404(video_id)
+
+    # Проверяем, не добавлено ли уже
+    existing = PlaylistVideo.query.filter_by(
+        playlist_id=playlist_id,
+        video_id=video_id
+    ).first()
+
+    if existing:
+        return jsonify({'error': 'Видео уже в плейлисте'}), 400
+
+    playlist_video = PlaylistVideo(playlist_id=playlist_id, video_id=video_id)
+    db.session.add(playlist_video)
+    db.session.commit()
+
+    return jsonify({'success': True})
+
+
+@app.route('/watch_history')
+@login_required
+def watch_history():
+    history = WatchHistory.query.filter_by(user_id=current_user.id) \
+        .order_by(WatchHistory.watched_at.desc()).limit(50).all()
+    watched_videos = [h.video for h in history]
+
+    return render_template('history.html', videos=watched_videos)
+
+
+@app.route('/api/add_to_history/<int:video_id>', methods=['POST'])
+@login_required
+def add_to_history(video_id):
+    video = Video.query.get_or_404(video_id)
+
+    # Проверяем, есть ли уже в истории
+    existing = WatchHistory.query.filter_by(
+        user_id=current_user.id,
+        video_id=video_id
+    ).first()
+
+    if existing:
+        existing.watched_at = datetime.utcnow()
+    else:
+        history = WatchHistory(user_id=current_user.id, video_id=video_id)
+        db.session.add(history)
+
+    db.session.commit()
+
+    return jsonify({'success': True})
+
+
+@app.route('/subscriptions')
+@login_required
+def subscriptions():
+    # Получаем каналы, на которые подписан пользователь
+    subscriptions = Subscription.query.filter_by(subscriber_id=current_user.id).all()
+    subscribed_channels = [User.query.get(sub.channel_id) for sub in subscriptions]
+
+    return render_template('subscriptions.html', channels=subscribed_channels)
+
+
 # Статические файлы
 @app.route('/uploads/videos/<filename>')
 def uploaded_video(filename):
@@ -767,8 +987,47 @@ def not_found_error(error):
 # Инициализация базы данных
 @app.before_request
 def create_tables():
-    db.create_all()
+    """Создание таблиц при необходимости перед каждым запросом"""
+    if not hasattr(app, 'tables_created'):
+        db.create_all()
+        app.tables_created = True
 
+
+# Создание стандартных плейлистов для пользователей
+def init_database():
+    """Инициализация базы данных при первом запуске"""
+    with app.app_context():
+        try:
+            db.create_all()
+            print("Таблицы базы данных созданы")
+
+            # Создаем стандартные плейлисты для всех пользователей
+            users = User.query.all()
+            for user in users:
+                # Проверяем, есть ли у пользователя плейлист "Избранное"
+                existing = Playlist.query.filter_by(
+                    user_id=user.id,
+                    name="Избранное"
+                ).first()
+
+                if not existing:
+                    playlist = Playlist(
+                        user_id=user.id,
+                        name="Избранное",
+                        description="Мои любимые видео",
+                        is_public=False
+                    )
+                    db.session.add(playlist)
+
+            db.session.commit()
+            print("Стандартные плейлисты созданы")
+
+        except Exception as e:
+            print(f"Ошибка при инициализации БД: {e}")
+
+
+# Инициализируем базу данных при запуске
+init_database()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)
