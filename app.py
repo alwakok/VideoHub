@@ -39,6 +39,7 @@ class User(UserMixin, db.Model):
     bio = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     theme = db.Column(db.String(20), default='light')  # Добавляем поле для темы
+    terms_accepted_at = db.Column(db.DateTime, nullable=True)
     videos = db.relationship('Video', backref='author', lazy=True)
     likes = db.relationship('Like', backref='user', lazy=True)
     comments = db.relationship('Comment', backref='author', lazy=True)
@@ -122,7 +123,7 @@ class WatchHistory(db.Model):
     video_id = db.Column(db.Integer, db.ForeignKey('video.id'), nullable=False)
     watched_at = db.Column(db.DateTime, default=datetime.utcnow)
     __table_args__ = (db.UniqueConstraint('user_id', 'video_id', name='unique_watch_history'),)
-
+    video = db.relationship('Video', backref='watch_histories', lazy=True)
 
 class Subscription(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -419,6 +420,60 @@ def upload():
 
     return render_template('upload.html')
 
+@app.route('/terms')
+def terms():
+    """Страница с пользовательским соглашением"""
+    return render_template('terms.html')
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+
+    if request.method == 'POST':
+        username = request.form.get('username')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        accept_terms = request.form.get('accept_terms')  # чекбокс согласия
+
+        errors = []
+
+        # Проверка согласия с условиями
+        if accept_terms != 'on':
+            errors.append('Вы должны принять пользовательское соглашение')
+
+        if User.query.filter_by(username=username).first():
+            errors.append('Username already exists')
+
+        if User.query.filter_by(email=email).first():
+            errors.append('Email already registered')
+
+        if password != confirm_password:
+            errors.append('Passwords do not match')
+
+        if len(password) < 6:
+            errors.append('Password must be at least 6 characters')
+
+        if errors:
+            for error in errors:
+                flash(error, 'error')
+        else:
+            user = User(
+                username=username,
+                email=email,
+                avatar='default_avatar.png',
+                terms_accepted_at=datetime.utcnow()  # записываем дату согласия
+            )
+            user.set_password(password)
+
+            db.session.add(user)
+            db.session.commit()
+
+            flash('Registration successful! Please log in.', 'success')
+            return redirect(url_for('login'))
+
+    return render_template('register.html')
 
 @app.route('/video/edit/<int:video_id>', methods=['GET', 'POST'])
 @login_required
@@ -724,48 +779,6 @@ def login():
 
     return render_template('login.html')
 
-
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if current_user.is_authenticated:
-        return redirect(url_for('index'))
-
-    if request.method == 'POST':
-        username = request.form.get('username')
-        email = request.form.get('email')
-        password = request.form.get('password')
-        confirm_password = request.form.get('confirm_password')
-
-        # Валидация
-        errors = []
-
-        if User.query.filter_by(username=username).first():
-            errors.append('Username already exists')
-
-        if User.query.filter_by(email=email).first():
-            errors.append('Email already registered')
-
-        if password != confirm_password:
-            errors.append('Passwords do not match')
-
-        if len(password) < 6:
-            errors.append('Password must be at least 6 characters')
-
-        if errors:
-            for error in errors:
-                flash(error, 'error')
-        else:
-            # Создаем нового пользователя с дефолтным аватаром
-            user = User(username=username, email=email, avatar='default_avatar.png')
-            user.set_password(password)
-
-            db.session.add(user)
-            db.session.commit()
-
-            flash('Registration successful! Please log in.', 'success')
-            return redirect(url_for('login'))
-
-    return render_template('register.html')
 
 
 @app.route('/logout')

@@ -1,43 +1,49 @@
 {% extends "base.html" %}
 
-{% block title %}VideoHUB - Регистрация{% endblock %}
+{% block title %}Регистрация - VideoHUB{% endblock %}
 
 {% block content %}
 <div class="auth-page">
     <div class="auth-container">
         <div class="auth-header">
             <h1><i class="fas fa-user-plus"></i> Регистрация</h1>
-            <p>Создайте аккаунт, чтобы начать использовать VideoHUB</p>
+            <p>Создайте аккаунт для доступа к видео</p>
         </div>
 
         <form method="POST" class="auth-form">
             <div class="form-group">
                 <label for="username">Имя пользователя</label>
-                <input type="text" id="username" name="username" required placeholder="Придумайте имя пользователя">
+                <input type="text" id="username" name="username" required>
                 <i class="fas fa-user input-icon"></i>
             </div>
 
             <div class="form-group">
                 <label for="email">Email</label>
-                <input type="email" id="email" name="email" required placeholder="Введите ваш email">
+                <input type="email" id="email" name="email" required>
                 <i class="fas fa-envelope input-icon"></i>
             </div>
 
             <div class="form-group">
                 <label for="password">Пароль</label>
-                <input type="password" id="password" name="password" required placeholder="Придумайте пароль">
+                <input type="password" id="password" name="password" required>
                 <i class="fas fa-lock input-icon"></i>
             </div>
 
             <div class="form-group">
-                <label for="confirm_password">Подтвердите пароль</label>
-                <input type="password" id="confirm_password" name="confirm_password" required placeholder="Повторите пароль">
+                <label for="confirm_password">Подтверждение пароля</label>
+                <input type="password" id="confirm_password" name="confirm_password" required>
                 <i class="fas fa-lock input-icon"></i>
             </div>
 
-            <button type="submit" class="btn btn-primary btn-block">
-                <i class="fas fa-user-plus"></i> Зарегистрироваться
-            </button>
+            <!-- Блок пользовательского соглашения -->
+            <div class="form-group terms-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="accept_terms" required>
+                    <span>Я принимаю <a href="{{ url_for('terms') }}" target="_blank">пользовательское соглашение</a></span>
+                </label>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block">Зарегистрироваться</button>
 
             <div class="auth-footer">
                 <p>Уже есть аккаунт? <a href="{{ url_for('login') }}">Войти</a></p>
@@ -45,22 +51,4 @@
         </form>
     </div>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.querySelector('.auth-form');
-    const password = document.getElementById('password');
-    const confirmPassword = document.getElementById('confirm_password');
-
-    form.addEventListener('submit', function(e) {
-        if (password.value !== confirmPassword.value) {
-            e.preventDefault();
-            alert('Пароли не совпадают!');
-        } else if (password.value.length < 6) {
-            e.preventDefault();
-            alert('Пароль должен содержать не менее 6 символов!');
-        }
-    });
-});
-</script>
 {% endblock %}
