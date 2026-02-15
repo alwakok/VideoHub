@@ -4,76 +4,101 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}VideoHUB{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/layout.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
-<body>
+<body class="{% if request.endpoint != 'video_detail' %}has-sidebar{% endif %}">
     <!-- Навигация -->
     <nav class="navbar">
-        <div class="container">
-            <a href="{{ url_for('index') }}" class="logo">
-                <i class="fas fa-play-circle"></i>
-                <span>VideoHUB</span>
-            </a>
+    <div class="container">
+        <a href="{{ url_for('index') }}" class="logo">
+            <i class="fas fa-play-circle"></i>
+            <span>VideoHUB</span>
+        </a>
 
-            <div class="search-bar">
-                <form action="{{ url_for('search') }}" method="GET">
-                    <input type="text" name="q" placeholder="Поиск видео..." value="{{ request.args.get('q', '') }}">
-                    <button type="submit"><i class="fas fa-search"></i></button>
-                </form>
-            </div>
-
-            <div class="nav-links">
-                <!-- Мобильный поиск -->
-                <button class="mobile-search-toggle" id="mobile-search-toggle" style="display: none;">
-                    <i class="fas fa-search"></i>
-                </button>
-
-                <!-- Мобильное меню -->
-                {% if current_user.is_authenticated %}
-                    <div class="user-menu">
-                        <a href="{{ url_for('profile', username=current_user.username) }}" class="user-avatar">
-                            <img src="{{ url_for('uploaded_thumbnail', filename=current_user.avatar) }}"
-                                 alt="{{ current_user.username }}"
-                                 onerror="this.src='{{ url_for('uploaded_thumbnail', filename='default_avatar.png') }}'">
-                        </a>
-                        <div class="dropdown">
-                            <a href="{{ url_for('profile', username=current_user.username) }}">
-                                <i class="fas fa-user"></i> Профиль
-                            </a>
-                            <a href="{{ url_for('edit_profile') }}">
-                                <i class="fas fa-cog"></i> Настройки
-                            </a>
-                            <a href="{{ url_for('upload') }}">
-                                <i class="fas fa-upload"></i> Загрузить видео
-                            </a>
-                            <button class="theme-toggle" onclick="toggleTheme()">
-                                <i class="fas fa-moon"></i>
-                                <span>Ночная тема</span>
-                            </button>
-                            <a href="{{ url_for('logout') }}">
-                                <i class="fas fa-sign-out-alt"></i> Выйти
-                            </a>
-                        </div>
-                    </div>
-                {% else %}
-                    <a href="{{ url_for('login') }}" class="nav-link">Войти</a>
-                    <a href="{{ url_for('register') }}" class="btn btn-primary">Регистрация</a>
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- Мобильный поиск (скрытый по умолчанию) -->
-        <div class="mobile-search" id="mobile-search">
+        <div class="search-bar">
             <form action="{{ url_for('search') }}" method="GET">
                 <input type="text" name="q" placeholder="Поиск видео..." value="{{ request.args.get('q', '') }}">
                 <button type="submit"><i class="fas fa-search"></i></button>
             </form>
         </div>
-    </nav>
+
+        <div class="nav-links">
+            <!-- Мобильный поиск -->
+            <button class="mobile-search-toggle" id="mobile-search-toggle">
+                <i class="fas fa-search"></i>
+            </button>
+
+            <!-- Навигация для неавторизованных -->
+            {% if not current_user.is_authenticated %}
+                <div class="guest-menu">
+                    <button class="btn-settings" id="guest-settings-btn">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                    <a href="{{ url_for('login') }}" class="btn btn-primary btn-login">Войти</a>
+
+                    <!-- Модальное окно настроек для гостей -->
+                    <div class="guest-settings-modal" id="guest-settings-modal">
+                        <div class="settings-content">
+                            <div class="settings-item">
+                                <span class="settings-label">
+                                    <i class="fas fa-moon"></i> Тема
+                                </span>
+                                <label class="switch">
+                                    <input type="checkbox" id="guest-theme-toggle">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <!-- Меню для авторизованных пользователей (оставляем как есть) -->
+                <div class="user-menu">
+                    <a href="{{ url_for('profile', username=current_user.username) }}" class="user-avatar">
+                        <img src="{{ url_for('uploaded_thumbnail', filename=current_user.avatar) }}"
+                             alt="{{ current_user.username }}"
+                             onerror="this.src='{{ url_for('uploaded_thumbnail', filename='default_avatar.png') }}'">
+                    </a>
+                    <div class="dropdown">
+                        <a href="{{ url_for('profile', username=current_user.username) }}">
+                            <i class="fas fa-user"></i> Профиль
+                        </a>
+                        <a href="{{ url_for('edit_profile') }}">
+                            <i class="fas fa-cog"></i> Настройки
+                        </a>
+                        <a href="{{ url_for('upload') }}">
+                            <i class="fas fa-upload"></i> Загрузить видео
+                        </a>
+                        <button class="theme-toggle" onclick="toggleTheme()">
+                            <i class="fas fa-moon"></i>
+                            <span>Ночная тема</span>
+                        </button>
+                        <a href="{{ url_for('logout') }}">
+                            <i class="fas fa-sign-out-alt"></i> Выйти
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Мобильный поиск (скрытый по умолчанию) -->
+    <div class="mobile-search" id="mobile-search">
+        <form action="{{ url_for('search') }}" method="GET">
+            <input type="text" name="q" placeholder="Поиск видео..." value="{{ request.args.get('q', '') }}">
+            <button type="submit"><i class="fas fa-search"></i></button>
+        </form>
+    </div>
+</nav>
 
     <!-- Боковая панель -->
     {% if request.endpoint != 'video_detail' %}

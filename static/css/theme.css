@@ -1,0 +1,52 @@
+/* ========== DARK THEME ========== */
+body.dark-theme {
+    --primary: #BB86FC;
+    --primary-dark: #3700B3;
+    --secondary: #03DAC6;
+    --bg: #121212;
+    --card: #1E1E1E;
+    --text: #E0E0E0;
+    --text-light: #B0B0B0;
+    --text-dark: #FFFFFF;
+    --border: #333333;
+    --hover: #2C2C2C;
+    --shadow: 0 2px 10px rgba(0,0,0,0.3);
+}
+
+body.dark-theme input,
+body.dark-theme textarea,
+body.dark-theme select {
+    background: var(--bg);
+    color: var(--text);
+    border-color: var(--border);
+}
+
+body.dark-theme .btn-secondary {
+    background: var(--text-dark);
+    color: white;
+}
+body.dark-theme .btn-action {
+    color: var(--text-dark);
+}
+body.dark-theme .video-actions .btn-action {
+    background: var(--card);
+}
+
+body.dark-theme .navbar,
+body.dark-theme .footer,
+body.dark-theme .sidebar,
+body.dark-theme .video-card,
+body.dark-theme .auth-container,
+body.dark-theme .profile-header,
+body.dark-theme .comments-section,
+body.dark-theme .search-header,
+body.dark-theme .terms-content {
+    background: var(--card);
+    border-color: var(--border);
+}
+
+body.dark-theme .search-bar input {
+    background: var(--bg);
+    color: var(--text);
+    border-color: var(--border);
+}
