@@ -425,6 +425,11 @@ def terms():
     """Страница с пользовательским соглашением"""
     return render_template('terms.html')
 
+@app.route('/watch-together')
+def watch_together():
+    """Страница совместного просмотра (заглушка)"""
+    return render_template('watch_together.html')
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if current_user.is_authenticated:
