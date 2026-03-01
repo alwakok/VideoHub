@@ -1,5 +1,6 @@
 import os
 import random
+import re
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
@@ -9,21 +10,16 @@ from werkzeug.utils import secure_filename
 from config import Config
 import uuid
 
-# Инициализация приложения
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# Константы для проверки файлов
 ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
-# Создание папок для загрузок
 os.makedirs(app.config['VIDEO_FOLDER'], exist_ok=True)
 os.makedirs(app.config['THUMBNAIL_FOLDER'], exist_ok=True)
 
-# Инициализация базы данных
 db = SQLAlchemy(app)
 
-# Инициализация Flask-Login
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
@@ -38,7 +34,7 @@ class User(UserMixin, db.Model):
     avatar = db.Column(db.String(200), default='default_avatar.png')
     bio = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    theme = db.Column(db.String(20), default='light')  # Добавляем поле для темы
+    theme = db.Column(db.String(20), default='light')
     terms_accepted_at = db.Column(db.DateTime, nullable=True)
     videos = db.relationship('Video', backref='author', lazy=True)
     likes = db.relationship('Like', backref='user', lazy=True)
@@ -51,11 +47,9 @@ class User(UserMixin, db.Model):
     subscribers = db.relationship('Subscription', foreign_keys='Subscription.channel_id', backref='channel', lazy=True)
 
     def set_password(self, password):
-        """Устанавливает хеш пароля"""
         self.password_hash = generate_password_hash(password)
 
     def check_password(self, password):
-        """Проверяет пароль"""
         return check_password_hash(self.password_hash, password)
 
 
@@ -125,6 +119,7 @@ class WatchHistory(db.Model):
     __table_args__ = (db.UniqueConstraint('user_id', 'video_id', name='unique_watch_history'),)
     video = db.relationship('Video', backref='watch_histories', lazy=True)
 
+
 class Subscription(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     subscriber_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -138,7 +133,6 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 
-# Вспомогательные функции
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
@@ -149,14 +143,11 @@ def allowed_image_file(filename):
 
 def generate_unique_filename(filename):
     ext = filename.rsplit('.', 1)[1].lower()
-    unique_filename = f"{uuid.uuid4().hex}.{ext}"
-    return unique_filename
+    return f"{uuid.uuid4().hex}.{ext}"
 
 
 def get_video_duration(file_path):
-    """Определяет длительность видео файла"""
     try:
-        # Сначала пробуем использовать MoviePy если установлен
         try:
             from moviepy.editor import VideoFileClip
             with VideoFileClip(file_path) as video:
@@ -167,7 +158,6 @@ def get_video_duration(file_path):
         except ImportError:
             pass
 
-        # Пробуем использовать OpenCV если установлен
         try:
             import cv2
             video = cv2.VideoCapture(file_path)
@@ -183,65 +173,21 @@ def get_video_duration(file_path):
         except ImportError:
             pass
 
-        # Простой способ для MP4 файлов
-        try:
-            import struct
-            with open(file_path, 'rb') as f:
-                # Читаем начало файла для определения формата
-                data = f.read(100)
+        file_size = os.path.getsize(file_path)
+        estimated_seconds = file_size / (100 * 1024)
+        estimated_seconds = max(30, min(estimated_seconds, 1800))
 
-                # Для MP4 файлов ищем атомы
-                if b'ftyp' in data or b'moov' in data:
-                    # Пытаемся определить длительность по размеру файла
-                    file_size = os.path.getsize(file_path)
-
-                    # Грубая оценка: 1 минута ≈ 10MB для 720p
-                    estimated_minutes = file_size / (10 * 1024 * 1024)
-                    if estimated_minutes < 1:
-                        estimated_minutes = 1
-                    elif estimated_minutes > 60:
-                        estimated_minutes = 60
-
-                    minutes = int(estimated_minutes)
-                    seconds = int((estimated_minutes - minutes) * 60)
-                    return f"{minutes}:{seconds:02d}"
-
-        except:
-            pass
-
-        # Если ничего не сработало, используем случайную длительность
-        # Но на основе размера файла для большей точности
-        try:
-            file_size = os.path.getsize(file_path)
-            # Примерная оценка: 1MB ≈ 10 секунд для среднего качества
-            estimated_seconds = file_size / (100 * 1024)  # 100KB в секунду
-            if estimated_seconds < 30:
-                estimated_seconds = 30
-            elif estimated_seconds > 1800:  # 30 минут максимум
-                estimated_seconds = 1800
-
-            minutes = int(estimated_seconds // 60)
-            seconds = int(estimated_seconds % 60)
-            return f"{minutes}:{seconds:02d}"
-
-        except:
-            # Последний резерв - случайная длительность
-            minutes = random.randint(1, 30)
-            seconds = random.randint(0, 59)
-            return f"{minutes}:{seconds:02d}"
+        minutes = int(estimated_seconds // 60)
+        seconds = int(estimated_seconds % 60)
+        return f"{minutes}:{seconds:02d}"
 
     except Exception as e:
         print(f"Ошибка при определении длительности видео: {e}")
-        # Резервный вариант
-        minutes = random.randint(1, 30)
-        seconds = random.randint(0, 59)
-        return f"{minutes}:{seconds:02d}"
+        return f"{random.randint(1, 30)}:{random.randint(0, 59):02d}"
 
 
 def extract_video_thumbnail(video_path, thumbnail_path):
-    """Извлекает первый кадр из видео для обложки"""
     try:
-        # Пробуем использовать OpenCV
         try:
             import cv2
             video = cv2.VideoCapture(video_path)
@@ -254,17 +200,14 @@ def extract_video_thumbnail(video_path, thumbnail_path):
         except ImportError:
             pass
 
-        # Пробуем использовать MoviePy
         try:
             from moviepy.editor import VideoFileClip
             with VideoFileClip(video_path) as video:
-                # Сохраняем первый кадр
                 video.save_frame(thumbnail_path, t=0)
                 return True
         except ImportError:
             pass
 
-        # Если библиотеки не установлены, копируем дефолтную обложку
         default_thumbnail = os.path.join(app.config['THUMBNAIL_FOLDER'], 'default-thumbnail.jpg')
         if os.path.exists(default_thumbnail):
             import shutil
@@ -277,34 +220,42 @@ def extract_video_thumbnail(video_path, thumbnail_path):
         return False
 
 
-# Маршруты
+def validate_email(email):
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(pattern, email) is not None
+
+
+def create_default_playlists(user_id):
+    existing = Playlist.query.filter_by(user_id=user_id, name="Избранное").first()
+    if not existing:
+        playlist = Playlist(
+            user_id=user_id,
+            name="Избранное",
+            description="Мои любимые видео",
+            is_public=False
+        )
+        db.session.add(playlist)
+        db.session.commit()
+
+
 @app.route('/')
 def index():
-    # Получаем популярные видео (по просмотрам)
     popular_videos = Video.query.order_by(Video.views.desc()).limit(12).all()
-
-    # Получаем новые видео
     new_videos = Video.query.order_by(Video.created_at.desc()).limit(12).all()
 
-    # Если пользователь авторизован, получаем рекомендации
     recommended_videos = []
     if current_user.is_authenticated:
-        # Простая рекомендательная система: видео от авторов, которых пользователь лайкал
-        user_likes = Like.query.filter_by(user_id=current_user.id).all()
-        liked_video_ids = [like.video_id for like in user_likes]
+        liked_video_ids = [like.video_id for like in current_user.likes]
 
         if liked_video_ids:
-            # Находим авторов лайкнутых видео
-            liked_videos = Video.query.filter(Video.id.in_(liked_video_ids)).all()
-            liked_authors = [video.user_id for video in liked_videos]
+            liked_authors = db.session.query(Video.user_id).filter(Video.id.in_(liked_video_ids)).distinct().all()
+            liked_authors = [author[0] for author in liked_authors]
 
-            # Рекомендуем другие видео этих авторов
             recommended_videos = Video.query.filter(
                 Video.user_id.in_(liked_authors),
                 ~Video.id.in_(liked_video_ids)
             ).order_by(db.func.random()).limit(12).all()
 
-    # Если нет рекомендаций, показываем случайные видео
     if not recommended_videos:
         recommended_videos = Video.query.order_by(db.func.random()).limit(12).all()
 
@@ -317,32 +268,24 @@ def index():
 @app.route('/video/<int:video_id>')
 def video_detail(video_id):
     video = Video.query.get_or_404(video_id)
-
-    # Увеличиваем количество просмотров
     video.views += 1
     db.session.commit()
 
-    # Проверяем, лайкнул ли текущий пользователь это видео
-    user_liked = False
-    if current_user.is_authenticated:
-        like = Like.query.filter_by(user_id=current_user.id, video_id=video_id).first()
-        user_liked = like is not None
+    user_liked = current_user.is_authenticated and Like.query.filter_by(
+        user_id=current_user.id, video_id=video_id).first() is not None
 
-    # Получаем комментарии
     comments = Comment.query.filter_by(video_id=video_id).order_by(Comment.created_at.desc()).all()
 
-    # Получаем похожие видео (по тегам)
     similar_videos = []
     if video.tags:
-        tags = video.tags.split(',')
-        for tag in tags[:3]:
-            tagged_videos = Video.query.filter(
-                Video.tags.contains(tag.strip()),
+        tags = [tag.strip() for tag in video.tags.split(',')[:3]]
+        for tag in tags:
+            tagged = Video.query.filter(
+                Video.tags.contains(tag),
                 Video.id != video_id
             ).limit(4).all()
-            similar_videos.extend(tagged_videos)
+            similar_videos.extend(tagged)
 
-    # Убираем дубликаты
     similar_videos = list({v.id: v for v in similar_videos}.values())[:6]
 
     return render_template('video.html',
@@ -356,7 +299,6 @@ def video_detail(video_id):
 @login_required
 def upload():
     if request.method == 'POST':
-        # Проверяем, есть ли файл в запросе
         if 'video' not in request.files:
             flash('No video file selected', 'error')
             return redirect(request.url)
@@ -368,17 +310,12 @@ def upload():
             return redirect(request.url)
 
         if file and allowed_file(file.filename):
-            # Генерируем уникальное имя файла
             filename = generate_unique_filename(file.filename)
-
-            # Сохраняем видео
             video_path = os.path.join(app.config['VIDEO_FOLDER'], filename)
             file.save(video_path)
 
-            # Получаем длительность видео
             duration = get_video_duration(video_path)
 
-            # Создаем запись в базе данных
             video = Video(
                 user_id=current_user.id,
                 title=request.form.get('title', 'Untitled'),
@@ -388,26 +325,22 @@ def upload():
                 duration=duration
             )
 
-            # Сохраняем thumbnail если есть
             thumbnail_filename = None
             if 'thumbnail' in request.files:
                 thumbnail_file = request.files['thumbnail']
-                if thumbnail_file and thumbnail_file.filename != '':
-                    if allowed_image_file(thumbnail_file.filename):
-                        thumbnail_ext = thumbnail_file.filename.rsplit('.', 1)[1].lower()
-                        thumbnail_filename = f"{uuid.uuid4().hex}.{thumbnail_ext}"
-                        thumbnail_path = os.path.join(app.config['THUMBNAIL_FOLDER'], thumbnail_filename)
-                        thumbnail_file.save(thumbnail_path)
-                        video.thumbnail = thumbnail_filename
+                if thumbnail_file and thumbnail_file.filename != '' and allowed_image_file(thumbnail_file.filename):
+                    thumbnail_ext = thumbnail_file.filename.rsplit('.', 1)[1].lower()
+                    thumbnail_filename = f"{uuid.uuid4().hex}.{thumbnail_ext}"
+                    thumbnail_path = os.path.join(app.config['THUMBNAIL_FOLDER'], thumbnail_filename)
+                    thumbnail_file.save(thumbnail_path)
+                    video.thumbnail = thumbnail_filename
 
-            # Если thumbnail не загружен, создаем из первого кадра видео
             if not thumbnail_filename:
                 thumbnail_filename = f"thumbnail_{uuid.uuid4().hex}.jpg"
                 thumbnail_path = os.path.join(app.config['THUMBNAIL_FOLDER'], thumbnail_filename)
                 if extract_video_thumbnail(video_path, thumbnail_path):
                     video.thumbnail = thumbnail_filename
                 else:
-                    # Если не удалось извлечь кадр, используем дефолтную обложку
                     video.thumbnail = 'default-thumbnail.jpg'
 
             db.session.add(video)
@@ -420,15 +353,16 @@ def upload():
 
     return render_template('upload.html')
 
+
 @app.route('/terms')
 def terms():
-    """Страница с пользовательским соглашением"""
     return render_template('terms.html')
+
 
 @app.route('/watch-together')
 def watch_together():
-    """Страница совместного просмотра (заглушка)"""
     return render_template('watch_together.html')
+
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -436,29 +370,31 @@ def register():
         return redirect(url_for('index'))
 
     if request.method == 'POST':
-        username = request.form.get('username')
-        email = request.form.get('email')
-        password = request.form.get('password')
-        confirm_password = request.form.get('confirm_password')
-        accept_terms = request.form.get('accept_terms')  # чекбокс согласия
+        username = request.form.get('username', '').strip()
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '')
+        confirm_password = request.form.get('confirm_password', '')
+        accept_terms = request.form.get('accept_terms')
 
         errors = []
 
-        # Проверка согласия с условиями
         if accept_terms != 'on':
             errors.append('Вы должны принять пользовательское соглашение')
 
-        if User.query.filter_by(username=username).first():
+        if not username or len(username) < 3:
+            errors.append('Имя пользователя должно содержать минимум 3 символа')
+        elif User.query.filter_by(username=username).first():
             errors.append('Username already exists')
 
-        if User.query.filter_by(email=email).first():
+        if not email or not validate_email(email):
+            errors.append('Некорректный email адрес')
+        elif User.query.filter_by(email=email).first():
             errors.append('Email already registered')
-
-        if password != confirm_password:
-            errors.append('Passwords do not match')
 
         if len(password) < 6:
             errors.append('Password must be at least 6 characters')
+        elif password != confirm_password:
+            errors.append('Passwords do not match')
 
         if errors:
             for error in errors:
@@ -468,70 +404,57 @@ def register():
                 username=username,
                 email=email,
                 avatar='default_avatar.png',
-                terms_accepted_at=datetime.utcnow()  # записываем дату согласия
+                terms_accepted_at=datetime.utcnow()
             )
             user.set_password(password)
 
             db.session.add(user)
             db.session.commit()
+            create_default_playlists(user.id)
 
             flash('Registration successful! Please log in.', 'success')
             return redirect(url_for('login'))
 
     return render_template('register.html')
 
+
 @app.route('/video/edit/<int:video_id>', methods=['GET', 'POST'])
 @login_required
 def edit_video(video_id):
     video = Video.query.get_or_404(video_id)
 
-    # Проверяем, что пользователь - владелец видео
     if current_user.id != video.user_id:
         flash('Вы не можете редактировать это видео', 'error')
         return redirect(url_for('video_detail', video_id=video_id))
 
     if request.method == 'POST':
-        # Обновляем заголовок
-        title = request.form.get('title', '').strip()
-        if title:
-            video.title = title
+        video.title = request.form.get('title', '').strip() or video.title
+        video.description = request.form.get('description', '').strip() or None
+        video.tags = request.form.get('tags', '').strip() or None
 
-        # Обновляем описание
-        description = request.form.get('description', '').strip()
-        video.description = description if description else None
-
-        # Обновляем теги
-        tags = request.form.get('tags', '').strip()
-        video.tags = tags if tags else None
-
-        # Обработка новой обложки
         if 'thumbnail' in request.files:
             thumbnail_file = request.files['thumbnail']
-            if thumbnail_file and thumbnail_file.filename != '':
-                if allowed_image_file(thumbnail_file.filename):
-                    # Удаляем старую обложку если она не дефолтная
-                    if video.thumbnail and video.thumbnail != 'default-thumbnail.jpg':
-                        old_thumbnail_path = os.path.join(app.config['THUMBNAIL_FOLDER'], video.thumbnail)
-                        if os.path.exists(old_thumbnail_path):
-                            try:
-                                os.remove(old_thumbnail_path)
-                            except:
-                                pass
+            if thumbnail_file and thumbnail_file.filename != '' and allowed_image_file(thumbnail_file.filename):
+                if video.thumbnail and video.thumbnail != 'default-thumbnail.jpg':
+                    old_path = os.path.join(app.config['THUMBNAIL_FOLDER'], video.thumbnail)
+                    if os.path.exists(old_path):
+                        try:
+                            os.remove(old_path)
+                        except:
+                            pass
 
-                    # Сохраняем новую обложку
-                    thumbnail_ext = thumbnail_file.filename.rsplit('.', 1)[1].lower()
-                    thumbnail_filename = f"thumbnail_{video_id}_{uuid.uuid4().hex[:8]}.{thumbnail_ext}"
-                    thumbnail_path = os.path.join(app.config['THUMBNAIL_FOLDER'], thumbnail_filename)
-                    thumbnail_file.save(thumbnail_path)
-                    video.thumbnail = thumbnail_filename
+                thumbnail_ext = thumbnail_file.filename.rsplit('.', 1)[1].lower()
+                thumbnail_filename = f"thumbnail_{video_id}_{uuid.uuid4().hex[:8]}.{thumbnail_ext}"
+                thumbnail_path = os.path.join(app.config['THUMBNAIL_FOLDER'], thumbnail_filename)
+                thumbnail_file.save(thumbnail_path)
+                video.thumbnail = thumbnail_filename
 
-        # Удаление текущей обложки (установка дефолтной)
         if request.form.get('remove_thumbnail') == 'true':
             if video.thumbnail and video.thumbnail != 'default-thumbnail.jpg':
-                old_thumbnail_path = os.path.join(app.config['THUMBNAIL_FOLDER'], video.thumbnail)
-                if os.path.exists(old_thumbnail_path):
+                old_path = os.path.join(app.config['THUMBNAIL_FOLDER'], video.thumbnail)
+                if os.path.exists(old_path):
                     try:
-                        os.remove(old_thumbnail_path)
+                        os.remove(old_path)
                     except:
                         pass
             video.thumbnail = 'default-thumbnail.jpg'
@@ -543,13 +466,11 @@ def edit_video(video_id):
     return render_template('edit_video.html', video=video)
 
 
-# Также добавьте этот маршрут для обработки AJAX-запросов на получение информации о видео
 @app.route('/api/video/<int:video_id>')
 @login_required
 def get_video_info(video_id):
     video = Video.query.get_or_404(video_id)
 
-    # Проверяем, что пользователь - владелец видео
     if current_user.id != video.user_id:
         return jsonify({'error': 'Unauthorized'}), 403
 
@@ -566,28 +487,20 @@ def get_video_info(video_id):
 @login_required
 def like_video(video_id):
     video = Video.query.get_or_404(video_id)
-
-    # Проверяем, не лайкнул ли уже пользователь это видео
     existing_like = Like.query.filter_by(user_id=current_user.id, video_id=video_id).first()
 
     if existing_like:
-        # Удаляем лайк
         db.session.delete(existing_like)
         liked = False
     else:
-        # Добавляем лайк
-        like = Like(user_id=current_user.id, video_id=video_id)
-        db.session.add(like)
+        db.session.add(Like(user_id=current_user.id, video_id=video_id))
         liked = True
 
     db.session.commit()
 
-    # Получаем обновленное количество лайков
-    like_count = Like.query.filter_by(video_id=video_id).count()
-
     return jsonify({
         'liked': liked,
-        'like_count': like_count
+        'like_count': Like.query.filter_by(video_id=video_id).count()
     })
 
 
@@ -599,7 +512,7 @@ def add_comment(video_id):
     if not content:
         return jsonify({'error': 'Comment cannot be empty'}), 400
 
-    video = Video.query.get_or_404(video_id)
+    Video.query.get_or_404(video_id)
 
     comment = Comment(
         user_id=current_user.id,
@@ -610,22 +523,16 @@ def add_comment(video_id):
     db.session.add(comment)
     db.session.commit()
 
-    # Получаем URL для аватара пользователя
-    avatar_url = url_for('uploaded_thumbnail', filename=current_user.avatar)
-
-    # Форматируем дату в единый формат
-    formatted_date = comment.created_at.strftime('%d.%m.%Y %H:%M')
-
     return jsonify({
         'success': True,
         'comment': {
             'id': comment.id,
             'content': comment.content,
-            'created_at': formatted_date,  # Используем отформатированную дату
+            'created_at': comment.created_at.strftime('%d.%m.%Y %H:%M'),
             'author': {
                 'id': current_user.id,
                 'username': current_user.username,
-                'avatar': avatar_url
+                'avatar': url_for('uploaded_thumbnail', filename=current_user.avatar)
             }
         }
     })
@@ -636,37 +543,27 @@ def add_comment(video_id):
 def delete_video(video_id):
     video = Video.query.get_or_404(video_id)
 
-    # Проверяем, что пользователь - владелец видео
     if current_user.id != video.user_id:
         return jsonify({'error': 'Unauthorized'}), 403
 
     try:
-        # Удаляем файл видео
         video_path = os.path.join(app.config['VIDEO_FOLDER'], video.filename)
         if os.path.exists(video_path):
             os.remove(video_path)
 
-        # Удаляем thumbnail если он не дефолтный
         if video.thumbnail and video.thumbnail != 'default-thumbnail.jpg':
             thumbnail_path = os.path.join(app.config['THUMBNAIL_FOLDER'], video.thumbnail)
             if os.path.exists(thumbnail_path):
                 os.remove(thumbnail_path)
 
-        # Удаляем запись из базы данных
         db.session.delete(video)
         db.session.commit()
 
-        return jsonify({
-            'success': True,
-            'message': 'Video deleted successfully'
-        })
+        return jsonify({'success': True})
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/profile/<username>')
@@ -674,9 +571,8 @@ def profile(username):
     user = User.query.filter_by(username=username).first_or_404()
     videos = Video.query.filter_by(user_id=user.id).order_by(Video.created_at.desc()).all()
 
-    # Статистика пользователя
     total_views = sum(video.views for video in videos)
-    total_likes = sum(Like.query.filter_by(video_id=video.id).count() for video in videos)
+    total_likes = sum(len(video.likes) for video in videos)
 
     return render_template('profile.html',
                            user=user,
@@ -689,50 +585,41 @@ def profile(username):
 @login_required
 def edit_profile():
     if request.method == 'POST':
-        # Обработка загрузки аватарки
         if 'avatar' in request.files:
             avatar_file = request.files['avatar']
-            if avatar_file and avatar_file.filename != '':
-                if allowed_image_file(avatar_file.filename):
-                    # Генерируем уникальное имя файла
-                    ext = avatar_file.filename.rsplit('.', 1)[1].lower()
-                    avatar_filename = f"avatar_{current_user.id}_{uuid.uuid4().hex[:8]}.{ext}"
-                    avatar_path = os.path.join(app.config['THUMBNAIL_FOLDER'], avatar_filename)
+            if avatar_file and avatar_file.filename != '' and allowed_image_file(avatar_file.filename):
+                ext = avatar_file.filename.rsplit('.', 1)[1].lower()
+                avatar_filename = f"avatar_{current_user.id}_{uuid.uuid4().hex[:8]}.{ext}"
+                avatar_path = os.path.join(app.config['THUMBNAIL_FOLDER'], avatar_filename)
 
-                    # Сохраняем файл
-                    avatar_file.save(avatar_path)
+                avatar_file.save(avatar_path)
 
-                    # Удаляем старый аватар если он существует и не дефолтный
-                    if current_user.avatar and current_user.avatar != 'default_avatar.png':
-                        old_avatar_path = os.path.join(app.config['THUMBNAIL_FOLDER'], current_user.avatar)
-                        if os.path.exists(old_avatar_path):
-                            try:
-                                os.remove(old_avatar_path)
-                            except:
-                                pass
+                if current_user.avatar and current_user.avatar != 'default_avatar.png':
+                    old_path = os.path.join(app.config['THUMBNAIL_FOLDER'], current_user.avatar)
+                    if os.path.exists(old_path):
+                        try:
+                            os.remove(old_path)
+                        except:
+                            pass
 
-                    # Обновляем в БД
-                    current_user.avatar = avatar_filename
-                    db.session.commit()
-                    flash('Аватар успешно обновлен!', 'success')
-                else:
-                    flash('Недопустимый формат файла. Разрешены: PNG, JPG, JPEG, GIF', 'error')
+                current_user.avatar = avatar_filename
+                db.session.commit()
+                flash('Аватар успешно обновлен!', 'success')
+            elif avatar_file and avatar_file.filename != '':
+                flash('Недопустимый формат файла. Разрешены: PNG, JPG, JPEG, GIF', 'error')
 
-        # Удаление аватарки
         if request.form.get('remove_avatar') == 'true':
             if current_user.avatar and current_user.avatar != 'default_avatar.png':
-                old_avatar_path = os.path.join(app.config['THUMBNAIL_FOLDER'], current_user.avatar)
-                if os.path.exists(old_avatar_path):
+                old_path = os.path.join(app.config['THUMBNAIL_FOLDER'], current_user.avatar)
+                if os.path.exists(old_path):
                     try:
-                        os.remove(old_avatar_path)
+                        os.remove(old_path)
                     except:
                         pass
-            # Устанавливаем дефолтный аватар
             current_user.avatar = 'default_avatar.png'
             db.session.commit()
             flash('Аватар удален, установлен аватар по умолчанию', 'success')
 
-        # Обновление имени пользователя
         new_username = request.form.get('username', '').strip()
         if new_username and new_username != current_user.username:
             if User.query.filter_by(username=new_username).first():
@@ -742,17 +629,17 @@ def edit_profile():
                 db.session.commit()
                 flash('Имя пользователя успешно обновлено!', 'success')
 
-        # Обновление email
         new_email = request.form.get('email', '').strip()
         if new_email and new_email != current_user.email:
-            if User.query.filter_by(email=new_email).first():
+            if not validate_email(new_email):
+                flash('Некорректный email адрес', 'error')
+            elif User.query.filter_by(email=new_email).first():
                 flash('Этот email уже зарегистрирован', 'error')
             else:
                 current_user.email = new_email
                 db.session.commit()
                 flash('Email успешно обновлен!', 'success')
 
-        # Обновление описания профиля
         bio = request.form.get('bio', '').strip()
         current_user.bio = bio if bio else None
         db.session.commit()
@@ -785,7 +672,6 @@ def login():
     return render_template('login.html')
 
 
-
 @app.route('/logout')
 @login_required
 def logout():
@@ -799,7 +685,6 @@ def search():
     query = request.args.get('q', '').strip()
 
     if query:
-        # Безопасный поиск с использованием параметров
         search_pattern = f'%{query}%'
         videos = Video.query.filter(
             db.or_(
@@ -813,8 +698,6 @@ def search():
 
     return render_template('search.html', videos=videos, query=query)
 
-
-# Новые маршруты для плейлистов, избранного и истории
 
 @app.route('/api/theme', methods=['POST'])
 @login_required
@@ -834,29 +717,21 @@ def update_theme():
 @app.route('/favorites')
 @login_required
 def favorites():
-    favorites = Favorite.query.filter_by(user_id=current_user.id) \
-        .order_by(Favorite.created_at.desc()).all()
-    favorite_videos = [fav.video for fav in favorites]
-
-    return render_template('favorites.html', videos=favorite_videos)
+    favorites = Favorite.query.filter_by(user_id=current_user.id).order_by(Favorite.created_at.desc()).all()
+    return render_template('favorites.html', videos=[fav.video for fav in favorites])
 
 
 @app.route('/favorite/<int:video_id>', methods=['POST'])
 @login_required
 def toggle_favorite(video_id):
-    video = Video.query.get_or_404(video_id)
+    Video.query.get_or_404(video_id)
+    existing = Favorite.query.filter_by(user_id=current_user.id, video_id=video_id).first()
 
-    existing_fav = Favorite.query.filter_by(
-        user_id=current_user.id,
-        video_id=video_id
-    ).first()
-
-    if existing_fav:
-        db.session.delete(existing_fav)
+    if existing:
+        db.session.delete(existing)
         favorited = False
     else:
-        favorite = Favorite(user_id=current_user.id, video_id=video_id)
-        db.session.add(favorite)
+        db.session.add(Favorite(user_id=current_user.id, video_id=video_id))
         favorited = True
 
     db.session.commit()
@@ -877,8 +752,6 @@ def playlists():
 @login_required
 def create_playlist():
     name = request.form.get('name', '').strip()
-    description = request.form.get('description', '').strip()
-    is_public = request.form.get('is_public', 'true') == 'true'
 
     if not name:
         return jsonify({'error': 'Название обязательно'}), 400
@@ -886,8 +759,8 @@ def create_playlist():
     playlist = Playlist(
         user_id=current_user.id,
         name=name,
-        description=description,
-        is_public=is_public
+        description=request.form.get('description', '').strip(),
+        is_public=request.form.get('is_public', 'true') == 'true'
     )
 
     db.session.add(playlist)
@@ -895,11 +768,7 @@ def create_playlist():
 
     return jsonify({
         'success': True,
-        'playlist': {
-            'id': playlist.id,
-            'name': playlist.name,
-            'description': playlist.description
-        }
+        'playlist': {'id': playlist.id, 'name': playlist.name}
     })
 
 
@@ -923,19 +792,10 @@ def add_to_playlist(playlist_id, video_id):
     if playlist.user_id != current_user.id:
         return jsonify({'error': 'Недостаточно прав'}), 403
 
-    video = Video.query.get_or_404(video_id)
-
-    # Проверяем, не добавлено ли уже
-    existing = PlaylistVideo.query.filter_by(
-        playlist_id=playlist_id,
-        video_id=video_id
-    ).first()
-
-    if existing:
+    if PlaylistVideo.query.filter_by(playlist_id=playlist_id, video_id=video_id).first():
         return jsonify({'error': 'Видео уже в плейлисте'}), 400
 
-    playlist_video = PlaylistVideo(playlist_id=playlist_id, video_id=video_id)
-    db.session.add(playlist_video)
+    db.session.add(PlaylistVideo(playlist_id=playlist_id, video_id=video_id))
     db.session.commit()
 
     return jsonify({'success': True})
@@ -944,29 +804,21 @@ def add_to_playlist(playlist_id, video_id):
 @app.route('/watch_history')
 @login_required
 def watch_history():
-    history = WatchHistory.query.filter_by(user_id=current_user.id) \
-        .order_by(WatchHistory.watched_at.desc()).limit(50).all()
-    watched_videos = [h.video for h in history]
-
-    return render_template('history.html', videos=watched_videos)
+    history = WatchHistory.query.filter_by(user_id=current_user.id).order_by(WatchHistory.watched_at.desc()).limit(
+        50).all()
+    return render_template('history.html', videos=[h.video for h in history])
 
 
 @app.route('/api/add_to_history/<int:video_id>', methods=['POST'])
 @login_required
 def add_to_history(video_id):
-    video = Video.query.get_or_404(video_id)
-
-    # Проверяем, есть ли уже в истории
-    existing = WatchHistory.query.filter_by(
-        user_id=current_user.id,
-        video_id=video_id
-    ).first()
+    Video.query.get_or_404(video_id)
+    existing = WatchHistory.query.filter_by(user_id=current_user.id, video_id=video_id).first()
 
     if existing:
         existing.watched_at = datetime.utcnow()
     else:
-        history = WatchHistory(user_id=current_user.id, video_id=video_id)
-        db.session.add(history)
+        db.session.add(WatchHistory(user_id=current_user.id, video_id=video_id))
 
     db.session.commit()
 
@@ -976,14 +828,10 @@ def add_to_history(video_id):
 @app.route('/subscriptions')
 @login_required
 def subscriptions():
-    # Получаем каналы, на которые подписан пользователь
-    subscriptions = Subscription.query.filter_by(subscriber_id=current_user.id).all()
-    subscribed_channels = [User.query.get(sub.channel_id) for sub in subscriptions]
-
-    return render_template('subscriptions.html', channels=subscribed_channels)
+    subs = Subscription.query.filter_by(subscriber_id=current_user.id).all()
+    return render_template('subscriptions.html', channels=[User.query.get(sub.channel_id) for sub in subs])
 
 
-# Статические файлы
 @app.route('/uploads/videos/<filename>')
 def uploaded_video(filename):
     return send_from_directory(app.config['VIDEO_FOLDER'], filename)
@@ -991,61 +839,36 @@ def uploaded_video(filename):
 
 @app.route('/uploads/thumbnails/<filename>')
 def uploaded_thumbnail(filename):
-    if not filename:
-        filename = 'default_avatar.png'
-    return send_from_directory(app.config['THUMBNAIL_FOLDER'], filename)
+    return send_from_directory(app.config['THUMBNAIL_FOLDER'], filename or 'default_avatar.png')
 
 
-# Обработчик ошибок 404
 @app.errorhandler(404)
 def not_found_error(error):
     return render_template('404.html'), 404
 
 
-# Инициализация базы данных
 @app.before_request
 def create_tables():
-    """Создание таблиц при необходимости перед каждым запросом"""
     if not hasattr(app, 'tables_created'):
         db.create_all()
         app.tables_created = True
 
 
-# Создание стандартных плейлистов для пользователей
 def init_database():
-    """Инициализация базы данных при первом запуске"""
     with app.app_context():
         try:
             db.create_all()
             print("Таблицы базы данных созданы")
 
-            # Создаем стандартные плейлисты для всех пользователей
-            users = User.query.all()
-            for user in users:
-                # Проверяем, есть ли у пользователя плейлист "Избранное"
-                existing = Playlist.query.filter_by(
-                    user_id=user.id,
-                    name="Избранное"
-                ).first()
+            for user in User.query.all():
+                create_default_playlists(user.id)
 
-                if not existing:
-                    playlist = Playlist(
-                        user_id=user.id,
-                        name="Избранное",
-                        description="Мои любимые видео",
-                        is_public=False
-                    )
-                    db.session.add(playlist)
-
-            db.session.commit()
             print("Стандартные плейлисты созданы")
-
         except Exception as e:
             print(f"Ошибка при инициализации БД: {e}")
 
 
-# Инициализируем базу данных при запуске
-init_database()
-
 if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()
     app.run(host='0.0.0.0', port=5001, debug=True)

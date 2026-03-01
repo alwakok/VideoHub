@@ -399,10 +399,22 @@ input:checked + .slider:before {
     border-right: 1px solid var(--border);
     z-index: 900;
     overflow-y: auto;
+    display: flex;
+    flex-direction: column;
 }
 
-.sidebar-content { padding: 20px; }
-.sidebar-section { margin-bottom: 30px; }
+.sidebar-content {
+    padding: 20px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+}
+
+.sidebar-section {
+    margin-bottom: 30px;
+}
+
 .sidebar-title {
     font-size: 14px;
     font-weight: 600;
@@ -413,8 +425,13 @@ input:checked + .slider:before {
     padding-left: 10px;
 }
 
-.sidebar-menu { list-style: none; }
-.sidebar-menu li { margin-bottom: 5px; }
+.sidebar-menu {
+    list-style: none;
+}
+
+.sidebar-menu li {
+    margin-bottom: 5px;
+}
 
 .sidebar-link {
     display: flex;
@@ -425,17 +442,40 @@ input:checked + .slider:before {
     transition: all 0.3s;
 }
 
-.sidebar-link:hover { background: var(--secondary); color: var(--text-dark); }
-.sidebar-link.active { background: var(--primary); color: white; }
-.sidebar-link i { width: 24px; text-align: center; margin-right: 12px; }
-.sidebar-link .badge, .sidebar-link .coming-soon {
+.sidebar-link:hover {
+    background: var(--secondary);
+    color: var(--text-dark);
+}
+
+.sidebar-link.active {
+    background: var(--primary);
+    color: white;
+}
+
+.sidebar-link i {
+    width: 24px;
+    text-align: center;
+    margin-right: 12px;
+}
+
+.sidebar-link .badge,
+.sidebar-link .coming-soon {
     margin-left: auto;
     font-size: 12px;
     padding: 2px 8px;
     border-radius: 10px;
 }
-.sidebar-link .badge { background: var(--secondary); color: var(--text-dark); }
-.sidebar-link .coming-soon { background: var(--text-light); color: white; font-size: 10px; }
+
+.sidebar-link .badge {
+    background: var(--secondary);
+    color: var(--text-dark);
+}
+
+.sidebar-link .coming-soon {
+    background: var(--text-light);
+    color: white;
+    font-size: 10px;
+}
 
 /* Основной контент */
 .main-content {
@@ -445,11 +485,29 @@ input:checked + .slider:before {
     z-index: 1;
 }
 
+.main-content .container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 30px;
+    width: 100%;
+}
+
+@media (min-width: 1600px) {
+    .main-content .container {
+        max-width: 1600px;
+        padding: 0 40px;
+    }
+}
+
 .main-content.video-page-content {
     margin-left: 0;
 }
 
-/* Footer */
+.main-content.video-page-content .container {
+    max-width: 1400px;
+}
+
+/* Footer (удален из основного контента, оставлен для совместимости) */
 .footer {
     background: var(--card);
     padding: 50px 0 20px;
@@ -458,6 +516,20 @@ input:checked + .slider:before {
     z-index: 1001;
     width: 100%;
     clear: both;
+}
+
+.footer .container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 30px;
+    width: 100%;
+}
+
+@media (min-width: 1600px) {
+    .footer .container {
+        max-width: 1600px;
+        padding: 0 40px;
+    }
 }
 
 .footer-content {
@@ -487,6 +559,72 @@ input:checked + .slider:before {
     color: var(--text-light);
 }
 
+/* ========== SIDEBAR FOOTER ========== */
+.sidebar-footer {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+}
+
+.sidebar-footer-section {
+    margin-bottom: 20px;
+}
+
+.sidebar-footer-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-light);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+    padding-left: 10px;
+}
+
+.sidebar-footer-menu {
+    list-style: none;
+}
+
+.sidebar-footer-menu li {
+    margin-bottom: 8px;
+}
+
+.sidebar-footer-menu a {
+    color: var(--text-light);
+    font-size: 13px;
+    transition: color 0.2s;
+    display: block;
+    padding: 4px 10px;
+}
+
+.sidebar-footer-menu a:hover {
+    color: var(--primary);
+    text-decoration: none;
+}
+
+.sidebar-footer-copyright {
+    padding: 15px 10px 5px;
+    color: var(--text-light);
+    font-size: 12px;
+    border-top: 1px solid var(--border);
+    margin-top: 15px;
+    text-align: center;
+}
+
+.sidebar-footer-copyright p {
+    margin: 0;
+    opacity: 0.7;
+}
+
+/* Для темной темы */
+body.dark-theme .sidebar-footer {
+    border-top-color: var(--border);
+}
+
+body.dark-theme .sidebar-footer-copyright {
+    border-top-color: var(--border);
+}
+
 /* Анимации */
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(-10px); }
@@ -497,3 +635,42 @@ input:checked + .slider:before {
     from { transform: translateX(100%); opacity: 0; }
     to { transform: translateX(0); opacity: 1; }
 }
+
+/* Для WebKit браузеров (Chrome, Safari, Edge) */
+.sidebar::-webkit-scrollbar {
+    width: 6px; /* Немного увеличил для лучшей видимости */
+    background: transparent;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+    background: rgba(100, 100, 100, 0.2); /* Полупрозрачный по умолчанию */
+    border-radius: 6px;
+    transition: background 0.2s;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+    background: rgba(100, 100, 100, 0.4); /* Чуть темнее при наведении на ползунок */
+}
+
+.sidebar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+/* Чтобы контент не сдвигался при появлении ползунка */
+.sidebar {
+    scrollbar-gutter: stable; /* Резервирует место под ползунок */
+}
+
+/* Для темной темы */
+body.dark-theme .sidebar {
+    scrollbar-color: rgba(200, 200, 200, 0.2) transparent; /* Для Firefox */
+}
+
+body.dark-theme .sidebar::-webkit-scrollbar-thumb {
+    background: rgba(200, 200, 200, 0.2);
+}
+
+body.dark-theme .sidebar::-webkit-scrollbar-thumb:hover {
+    background: rgba(200, 200, 200, 0.3);
+}
+

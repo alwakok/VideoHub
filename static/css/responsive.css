@@ -208,3 +208,39 @@
         font-size: 13px;
     }
 }
+
+/* ========== SIDEBAR FOOTER MOBILE ========== */
+@media (max-width: 768px) {
+    .sidebar-footer {
+        margin-bottom: 20px;
+    }
+
+    .sidebar-footer-menu a {
+        padding: 8px 10px;
+    }
+
+    .sidebar {
+        transform: translateX(-100%);
+        width: 280px;
+        top: 60px;
+        height: calc(100vh - 60px);
+        z-index: 900;
+        transition: transform 0.3s ease;
+    }
+
+    .sidebar.active {
+        transform: translateX(0);
+    }
+}
+
+@media (max-width: 480px) {
+    .sidebar-footer-title {
+        font-size: 12px;
+    }
+
+    .sidebar-footer-menu a {
+        font-size: 12px;
+        padding: 6px 8px;
+    }
+}
+

@@ -164,196 +164,207 @@
 
 {% block scripts %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Лайки
-    const likeBtn = document.getElementById('like-btn');
-    const likeCount = document.getElementById('like-count');
+(function() {
+    'use strict';
 
-    if (likeBtn) {
-        likeBtn.addEventListener('click', function() {
-            const videoId = this.getAttribute('data-video-id');
-
-            fetch(`/like/${videoId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.liked) {
-                    likeBtn.classList.add('liked');
-                } else {
-                    likeBtn.classList.remove('liked');
-                }
-                if (likeCount) {
-                    likeCount.textContent = data.like_count;
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-            });
-        });
-    }
-
-    // Добавление в избранное
-    const favoriteBtn = document.getElementById('favorite-btn');
-    if (favoriteBtn) {
-        favoriteBtn.addEventListener('click', function() {
-            const videoId = this.getAttribute('data-video-id');
-
-            fetch(`/favorite/${videoId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.favorited) {
-                    this.innerHTML = '<i class="fas fa-star"></i> <span>В избранном</span>';
-                    this.classList.add('liked');
-                } else {
-                    this.innerHTML = '<i class="fas fa-star"></i> <span>В избранное</span>';
-                    this.classList.remove('liked');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-            });
-        });
-    }
-
-    // Добавление в историю просмотров при начале просмотра видео
-    const videoPlayer = document.getElementById('main-video');
-    if (videoPlayer && {% if current_user.is_authenticated %}true{% else %}false{% endif %}) {
-        videoPlayer.addEventListener('play', function() {
-            const videoId = {{ video.id }};
-
-            fetch(`/api/add_to_history/${videoId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            });
-        });
-    }
-
-    // Комментарии
-    const commentForm = document.getElementById('comment-form');
-    if (commentForm) {
+    document.addEventListener('DOMContentLoaded', function() {
         let isSubmitting = false;
+        let lastCommentId = null;
 
-        commentForm.addEventListener('submit', function(e) {
-            e.preventDefault();
+        // Лайки
+        const likeBtn = document.getElementById('like-btn');
+        const likeCount = document.getElementById('like-count');
 
-            if (isSubmitting) return;
+        if (likeBtn) {
+            likeBtn.addEventListener('click', function() {
+                const videoId = this.getAttribute('data-video-id');
 
-            const videoId = this.getAttribute('data-video-id');
-            const commentInput = document.getElementById('comment-input');
-            const commentText = commentInput.value.trim();
-            const submitButton = this.querySelector('button[type="submit"]');
-
-            if (!commentText) {
-                return;
-            }
-
-            isSubmitting = true;
-
-            const originalText = submitButton.innerHTML;
-            submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Отправка...';
-            submitButton.disabled = true;
-
-            const formData = new FormData();
-            formData.append('content', commentText);
-
-            fetch(`/comment/${videoId}`, {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.success) {
-                    const existingComment = document.querySelector(`[data-comment-id="${data.comment.id}"]`);
-                    if (existingComment) {
-                        console.log('Комментарий уже существует в DOM');
-                        return;
+                fetch(`/like/${videoId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
                     }
-
-                    const commentsList = document.getElementById('comments-list');
-                    const commentsCount = document.getElementById('comments-count');
-
-                    const commentItem = document.createElement('div');
-                    commentItem.className = 'comment-item';
-                    commentItem.setAttribute('data-comment-id', data.comment.id);
-                    commentItem.innerHTML = `
-                        <a href="/profile/${data.comment.author.username}" class="comment-avatar">
-                            <img src="${data.comment.author.avatar}" alt="${data.comment.author.username}"
-                                 onerror="this.src='{{ url_for('uploaded_thumbnail', filename='default_avatar.png') }}'">
-                        </a>
-                        <div class="comment-content">
-                            <div class="comment-header">
-                                <a href="/profile/${data.comment.author.username}" class="comment-author">
-                                    ${data.comment.author.username}
-                                </a>
-                                <span class="comment-date">${data.comment.created_at}</span>
-                            </div>
-                            <p class="comment-text">${data.comment.content}</p>
-                        </div>
-                    `;
-
-                    const noComments = commentsList.querySelector('.no-comments');
-                    if (noComments) {
-                        noComments.remove();
-                    }
-
-                    if (commentsList.firstChild) {
-                        commentsList.insertBefore(commentItem, commentsList.firstChild);
-                    } else {
-                        commentsList.appendChild(commentItem);
-                    }
-
-                    if (commentsCount) {
-                        commentsCount.textContent = parseInt(commentsCount.textContent) + 1;
-                    }
-
-                    commentInput.value = '';
-                } else {
-                    console.error('Error adding comment:', data.error);
-                    alert('Ошибка при добавлении комментария: ' + (data.error || 'Неизвестная ошибка'));
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Ошибка сети. Попробуйте еще раз.');
-            })
-            .finally(() => {
-                isSubmitting = false;
-                submitButton.innerHTML = originalText;
-                submitButton.disabled = false;
-            });
-        });
-    }
-
-    // Поделиться
-    const shareBtn = document.getElementById('share-btn');
-    if (shareBtn) {
-        shareBtn.addEventListener('click', function() {
-            const url = window.location.href;
-            navigator.clipboard.writeText(url)
-                .then(() => {
-                    alert('Ссылка скопирована в буфер обмена!');
                 })
-                .catch(err => {
-                    console.error('Ошибка при копировании: ', err);
+                .then(response => response.json())
+                .then(data => {
+                    if (data.liked) {
+                        likeBtn.classList.add('liked');
+                    } else {
+                        likeBtn.classList.remove('liked');
+                    }
+                    if (likeCount) {
+                        likeCount.textContent = data.like_count;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
                 });
-        });
-    }
-});
+            });
+        }
+
+        // Добавление в избранное
+        const favoriteBtn = document.getElementById('favorite-btn');
+        if (favoriteBtn) {
+            favoriteBtn.addEventListener('click', function() {
+                const videoId = this.getAttribute('data-video-id');
+
+                fetch(`/favorite/${videoId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.favorited) {
+                        this.innerHTML = '<i class="fas fa-star"></i> <span>В избранном</span>';
+                        this.classList.add('liked');
+                    } else {
+                        this.innerHTML = '<i class="fas fa-star"></i> <span>В избранное</span>';
+                        this.classList.remove('liked');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+            });
+        }
+
+        // Добавление в историю просмотров
+        const videoPlayer = document.getElementById('main-video');
+        if (videoPlayer && {{ 'true' if current_user.is_authenticated else 'false' }}) {
+            videoPlayer.addEventListener('play', function() {
+                const videoId = {{ video.id }};
+                fetch(`/api/add_to_history/${videoId}`, { method: 'POST' });
+            });
+        }
+
+        // Комментарии - исправленная версия без дублирования
+        const commentForm = document.getElementById('comment-form');
+        if (commentForm) {
+            // Удаляем предыдущие обработчики, если они были
+            const newForm = commentForm.cloneNode(true);
+            commentForm.parentNode.replaceChild(newForm, commentForm);
+
+            newForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+
+                // Защита от повторной отправки
+                if (isSubmitting) return;
+
+                const videoId = this.getAttribute('data-video-id');
+                const commentInput = document.getElementById('comment-input');
+                const commentText = commentInput.value.trim();
+                const submitButton = this.querySelector('button[type="submit"]');
+
+                if (!commentText) {
+                    return;
+                }
+
+                isSubmitting = true;
+                const originalText = submitButton.innerHTML;
+                submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Отправка...';
+                submitButton.disabled = true;
+
+                const formData = new FormData();
+                formData.append('content', commentText);
+
+                fetch(`/comment/${videoId}`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success && data.comment) {
+                        // Проверяем, не добавлен ли уже этот комментарий
+                        const existingComment = document.querySelector(`[data-comment-id="${data.comment.id}"]`);
+                        if (existingComment) {
+                            console.log('Комментарий уже существует');
+                            return;
+                        }
+
+                        const commentsList = document.getElementById('comments-list');
+                        const commentsCount = document.getElementById('comments-count');
+
+                        // Создаем элемент комментария
+                        const commentItem = document.createElement('div');
+                        commentItem.className = 'comment-item';
+                        commentItem.setAttribute('data-comment-id', data.comment.id);
+                        commentItem.innerHTML = `
+                            <a href="/profile/${data.comment.author.username}" class="comment-avatar">
+                                <img src="${data.comment.author.avatar}" alt="${data.comment.author.username}"
+                                     onerror="this.src='{{ url_for('uploaded_thumbnail', filename='default_avatar.png') }}'">
+                            </a>
+                            <div class="comment-content">
+                                <div class="comment-header">
+                                    <a href="/profile/${data.comment.author.username}" class="comment-author">
+                                        ${data.comment.author.username}
+                                    </a>
+                                    <span class="comment-date">${data.comment.created_at}</span>
+                                </div>
+                                <p class="comment-text">${data.comment.content}</p>
+                            </div>
+                        `;
+
+                        // Удаляем заглушку "нет комментариев" если она есть
+                        const noComments = commentsList.querySelector('.no-comments');
+                        if (noComments) {
+                            noComments.remove();
+                        }
+
+                        // Добавляем комментарий в начало списка
+                        if (commentsList.firstChild) {
+                            commentsList.insertBefore(commentItem, commentsList.firstChild);
+                        } else {
+                            commentsList.appendChild(commentItem);
+                        }
+
+                        // Обновляем счетчик комментариев
+                        if (commentsCount) {
+                            const currentCount = parseInt(commentsCount.textContent) || 0;
+                            commentsCount.textContent = currentCount + 1;
+                        }
+
+                        // Очищаем поле ввода
+                        commentInput.value = '';
+
+                    } else {
+                        console.error('Error adding comment:', data.error);
+                        alert('Ошибка при добавлении комментария: ' + (data.error || 'Неизвестная ошибка'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Ошибка сети. Попробуйте еще раз.');
+                })
+                .finally(() => {
+                    isSubmitting = false;
+                    submitButton.innerHTML = originalText;
+                    submitButton.disabled = false;
+                });
+            });
+        }
+
+        // Поделиться
+        const shareBtn = document.getElementById('share-btn');
+        if (shareBtn) {
+            shareBtn.addEventListener('click', function() {
+                const url = window.location.href;
+                navigator.clipboard.writeText(url)
+                    .then(() => {
+                        alert('Ссылка скопирована в буфер обмена!');
+                    })
+                    .catch(err => {
+                        console.error('Ошибка при копировании: ', err);
+                    });
+            });
+        }
+    });
+})();
 </script>
 {% endblock %}

@@ -3,23 +3,6 @@
 {% block title %}VideoHUB - Главная{% endblock %}
 
 {% block content %}
-<div class="hero">
-    <div class="hero-content">
-        <h1>Смотри, загружай, делись</h1>
-        <p>VideoHUB - платформа для обмена видео контентом</p>
-        {% if not current_user.is_authenticated %}
-            <div class="hero-buttons">
-                <a href="{{ url_for('register') }}" class="btn btn-primary btn-large">Присоединиться</a>
-                <a href="{{ url_for('login') }}" class="btn btn-secondary btn-large">Войти</a>
-            </div>
-        {% else %}
-            <a href="{{ url_for('upload') }}" class="btn btn-primary btn-large">
-                <i class="fas fa-upload"></i> Загрузить видео
-            </a>
-        {% endif %}
-    </div>
-</div>
-
 <!-- Рекомендации -->
 {% if recommended_videos %}
 <section class="video-section">
