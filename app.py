@@ -362,7 +362,6 @@ def terms():
 def faq():
     return render_template('faq.html')
 
-
 @app.route('/watch-together')
 def watch_together():
     return render_template('watch_together.html')
@@ -687,18 +686,35 @@ def logout():
 @app.route('/search')
 def search():
     query = request.args.get('q', '').strip()
+    videos = []
 
     if query:
-        search_pattern = f'%{query}%'
-        videos = Video.query.filter(
-            db.or_(
-                Video.title.ilike(search_pattern),
-                Video.description.ilike(search_pattern),
-                Video.tags.ilike(search_pattern)
-            )
-        ).order_by(Video.created_at.desc()).all()
-    else:
-        videos = []
+        # Приводим запрос к нижнему регистру
+        query_lower = query.lower()
+
+        # Получаем все видео из базы
+        all_videos = Video.query.all()
+
+        # Фильтруем вручную на Python (100% надежный способ)
+        for video in all_videos:
+            # Приводим название к нижнему регистру
+            title_lower = video.title.lower() if video.title else ''
+            desc_lower = video.description.lower() if video.description else ''
+            tags_lower = video.tags.lower() if video.tags else ''
+
+            # Проверяем, содержится ли запрос (в нижнем регистре) в любом из полей
+            if (query_lower in title_lower or
+                    query_lower in desc_lower or
+                    query_lower in tags_lower):
+                videos.append(video)
+
+        # Сортируем по дате (новые сверху)
+        videos.sort(key=lambda x: x.created_at, reverse=True)
+
+        print(f"Поиск: '{query}' -> нижний регистр: '{query_lower}'")
+        print(f"Найдено видео: {len(videos)}")
+        for v in videos:
+            print(f"  - {v.title}")
 
     return render_template('search.html', videos=videos, query=query)
 
@@ -844,6 +860,67 @@ def uploaded_video(filename):
 @app.route('/uploads/thumbnails/<filename>')
 def uploaded_thumbnail(filename):
     return send_from_directory(app.config['THUMBNAIL_FOLDER'], filename or 'default_avatar.png')
+
+
+# Добавьте после других маршрутов
+
+@app.route('/subscribe/<int:channel_id>', methods=['POST'])
+@login_required
+def subscribe(channel_id):
+    """Подписка на канал"""
+    channel = User.query.get_or_404(channel_id)
+
+    # Нельзя подписаться на самого себя
+    if current_user.id == channel_id:
+        return jsonify({'error': 'Нельзя подписаться на свой канал'}), 400
+
+    existing = Subscription.query.filter_by(
+        subscriber_id=current_user.id,
+        channel_id=channel_id
+    ).first()
+
+    if existing:
+        # Отписка
+        db.session.delete(existing)
+        subscribed = False
+        message = f'Вы отписались от канала {channel.username}'
+    else:
+        # Подписка
+        db.session.add(Subscription(subscriber_id=current_user.id, channel_id=channel_id))
+        subscribed = True
+        message = f'Вы подписались на канал {channel.username}'
+
+    db.session.commit()
+
+    # Получаем обновленное количество подписчиков
+    subscribers_count = Subscription.query.filter_by(channel_id=channel_id).count()
+
+    return jsonify({
+        'success': True,
+        'subscribed': subscribed,
+        'subscribers_count': subscribers_count,
+        'message': message
+    })
+
+
+@app.route('/api/channel/<int:channel_id>/subscription-status')
+@login_required
+def get_subscription_status(channel_id):
+    """Проверка статуса подписки"""
+    if current_user.is_authenticated:
+        subscribed = Subscription.query.filter_by(
+            subscriber_id=current_user.id,
+            channel_id=channel_id
+        ).first() is not None
+    else:
+        subscribed = False
+
+    subscribers_count = Subscription.query.filter_by(channel_id=channel_id).count()
+
+    return jsonify({
+        'subscribed': subscribed,
+        'subscribers_count': subscribers_count
+    })
 
 
 @app.errorhandler(404)

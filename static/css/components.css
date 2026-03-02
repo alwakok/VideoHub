@@ -502,3 +502,36 @@
 .notification-success { background: var(--success); }
 .notification-error { background: var(--error); }
 .notification-info { background: var(--primary); }
+
+/* Стили для кнопки подписки */
+.subscribe-btn {
+    transition: all 0.3s ease;
+    min-width: 140px;
+}
+
+.subscribe-btn.subscribed {
+    background-color: var(--success-color, #5CB85C);
+    border-color: var(--success-color, #5CB85C);
+}
+
+.subscribe-btn.subscribed:hover {
+    background-color: var(--danger-color, #D9534F);
+    border-color: var(--danger-color, #D9534F);
+}
+
+.subscribe-btn.subscribed:hover i::before {
+    content: "\f235"; /* fa-user-times в Font Awesome */
+}
+
+.author-subscribers {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--text-light);
+    font-size: 14px;
+    margin-top: 3px;
+}
+
+.author-subscribers i {
+    font-size: 12px;
+}

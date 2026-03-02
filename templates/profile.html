@@ -21,14 +21,14 @@
             <div class="profile-name-section">
                 <h1>{{ user.username }}</h1>
                 {% if current_user.is_authenticated and current_user.id == user.id %}
-                    <a href="{{ url_for('edit_profile') }}" class="btn btn-secondary btn-small">
-                        <i class="fas fa-edit"></i> Редактировать профиль
-                    </a>
-                {% else %}
-                    <button class="btn btn-primary btn-small subscribe-btn" data-user-id="{{ user.id }}">
-                        <i class="fas fa-user-plus"></i> Подписаться
-                    </button>
-                {% endif %}
+    <a href="{{ url_for('edit_profile') }}" class="btn btn-secondary btn-small">
+        <i class="fas fa-edit"></i> Редактировать профиль
+    </a>
+{% else %}
+    <button class="btn btn-primary btn-small subscribe-btn" data-user-id="{{ user.id }}">
+        <i class="fas fa-user-plus"></i> Подписаться
+    </button>
+{% endif %}
             </div>
 
             <p class="profile-email">
@@ -408,24 +408,78 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Подписка/отписка
-    const subscribeBtn = document.querySelector('.subscribe-btn');
-    if (subscribeBtn) {
-        subscribeBtn.addEventListener('click', function() {
-            const userId = this.getAttribute('data-user-id');
-            const isSubscribed = this.classList.contains('subscribed');
+const subscribeBtn = document.querySelector('.subscribe-btn');
+if (subscribeBtn) {
+    // Проверяем текущий статус подписки при загрузке
+    const userId = subscribeBtn.getAttribute('data-user-id');
 
-            // Временная заглушка (в будущем можно добавить реальную подписку)
-            if (isSubscribed) {
-                this.classList.remove('subscribed');
-                this.innerHTML = '<i class="fas fa-user-plus"></i> Подписаться';
-                alert('Вы отписались от ' + document.querySelector('.profile-info h1').textContent);
+    fetch(`/api/channel/${userId}/subscription-status`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.subscribed) {
+                subscribeBtn.classList.add('subscribed');
+                subscribeBtn.innerHTML = '<i class="fas fa-user-check"></i> Вы подписаны';
             } else {
-                this.classList.add('subscribed');
-                this.innerHTML = '<i class="fas fa-user-check"></i> Вы подписаны';
-                alert('Вы подписались на ' + document.querySelector('.profile-info h1').textContent);
+                subscribeBtn.classList.remove('subscribed');
+                subscribeBtn.innerHTML = '<i class="fas fa-user-plus"></i> Подписаться';
             }
+
+            // Обновляем счетчик подписчиков
+            const subscribersStat = document.querySelector('.stat-item:nth-child(4) .stat-value');
+            if (subscribersStat) {
+                subscribersStat.textContent = data.subscribers_count;
+            }
+        })
+        .catch(error => console.error('Error checking subscription:', error));
+
+    subscribeBtn.addEventListener('click', function() {
+        const userId = this.getAttribute('data-user-id');
+        const isSubscribed = this.classList.contains('subscribed');
+        const originalText = this.innerHTML;
+
+        // Показываем индикатор загрузки
+        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Обработка...';
+        this.disabled = true;
+
+        fetch(`/subscribe/${userId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (data.subscribed) {
+                    this.classList.add('subscribed');
+                    this.innerHTML = '<i class="fas fa-user-check"></i> Вы подписаны';
+                    showNotification(data.message, 'success');
+                } else {
+                    this.classList.remove('subscribed');
+                    this.innerHTML = '<i class="fas fa-user-plus"></i> Подписаться';
+                    showNotification(data.message, 'success');
+                }
+
+                // Обновляем счетчик подписчиков
+                const subscribersStat = document.querySelector('.stat-item:nth-child(4) .stat-value');
+                if (subscribersStat) {
+                    subscribersStat.textContent = data.subscribers_count;
+                }
+            } else {
+                showNotification(data.error || 'Ошибка при выполнении операции', 'error');
+                this.innerHTML = originalText;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Ошибка сети. Попробуйте еще раз.', 'error');
+            this.innerHTML = originalText;
+        })
+        .finally(() => {
+            this.disabled = false;
         });
-    }
+    });
+}
 
     // Удаление видео (только для владельца)
     const deleteButtons = document.querySelectorAll('.delete-video');

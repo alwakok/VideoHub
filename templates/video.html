@@ -61,22 +61,29 @@
                 {% endif %}
             </div>
 
-            <div class="video-author-info">
-                <a href="{{ url_for('profile', username=video.author.username) }}" class="author-avatar">
-                    <img src="{{ url_for('uploaded_thumbnail', filename=video.author.avatar) }}"
-                         alt="{{ video.author.username }}"
-                         onerror="this.src='{{ url_for('uploaded_thumbnail', filename='default_avatar.png') }}'">
-                </a>
-                <div class="author-details">
-                    <a href="{{ url_for('profile', username=video.author.username) }}" class="author-name">
-                        {{ video.author.username }}
-                    </a>
-                    <p class="author-subscribers">Подписчиков: 0</p>
-                </div>
-                {% if current_user.is_authenticated and current_user.id != video.user_id %}
-                    <button class="btn btn-primary btn-small subscribe-btn">Подписаться</button>
-                {% endif %}
-            </div>
+<div class="video-author-info">
+    <a href="{{ url_for('profile', username=video.author.username) }}" class="author-avatar">
+        <img src="{{ url_for('uploaded_thumbnail', filename=video.author.avatar) }}"
+             alt="{{ video.author.username }}"
+             onerror="this.src='{{ url_for('uploaded_thumbnail', filename='default_avatar.png') }}'">
+    </a>
+    <div class="author-details">
+        <a href="{{ url_for('profile', username=video.author.username) }}" class="author-name">
+            {{ video.author.username }}
+        </a>
+        <p class="author-subscribers" id="subscribers-count">
+            <i class="fas fa-users"></i>
+            <span id="subscribers-count-value">{{ video.author.subscribers|length }}</span> подписчиков
+        </p>
+    </div>
+    {% if current_user.is_authenticated and current_user.id != video.user_id %}
+        <button class="btn btn-primary btn-small subscribe-btn"
+                data-channel-id="{{ video.user_id }}"
+                data-channel-name="{{ video.author.username }}">
+            <i class="fas fa-user-plus"></i> Подписаться
+        </button>
+    {% endif %}
+</div>
         </div>
     </div>
 
@@ -169,9 +176,143 @@
 
     document.addEventListener('DOMContentLoaded', function() {
         let isSubmitting = false;
-        let lastCommentId = null;
 
-        // Лайки
+        // Функция для показа уведомлений
+        window.showNotification = function(message, type = 'info') {
+            const colors = {
+                success: '#5CB85C',
+                error: '#D9534F',
+                info: '#B380E6',
+                warning: '#FFA500'
+            };
+
+            // Удаляем предыдущее уведомление, если оно есть
+            const oldNotification = document.querySelector('.notification');
+            if (oldNotification) {
+                oldNotification.remove();
+            }
+
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${type}`;
+            notification.textContent = message;
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 25px;
+                background: ${colors[type] || colors.info};
+                color: white;
+                border-radius: 8px;
+                z-index: 9999;
+                animation: slideIn 0.3s ease;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                font-size: 14px;
+                font-weight: 500;
+                max-width: 350px;
+                word-wrap: break-word;
+            `;
+
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        };
+
+        // Добавляем стили для анимаций если их нет
+        if (!document.querySelector('#notification-styles')) {
+            const style = document.createElement('style');
+            style.id = 'notification-styles';
+            style.textContent = `
+                @keyframes slideIn {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+                @keyframes slideOut {
+                    from { transform: translateX(0); opacity: 1; }
+                    to { transform: translateX(100%); opacity: 0; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        // ===== ПОДПИСКА НА КАНАЛ =====
+        const subscribeBtn = document.querySelector('.subscribe-btn');
+        const subscribersSpan = document.getElementById('subscribers-count-value');
+
+        if (subscribeBtn && subscribersSpan) {
+            const channelId = subscribeBtn.getAttribute('data-channel-id');
+
+            // Проверяем статус подписки при загрузке
+            fetch(`/api/channel/${channelId}/subscription-status`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.subscribed) {
+                        subscribeBtn.classList.add('subscribed');
+                        subscribeBtn.innerHTML = '<i class="fas fa-user-check"></i> Вы подписаны';
+                    }
+                    subscribersSpan.textContent = data.subscribers_count;
+                })
+                .catch(error => console.error('Ошибка проверки подписки:', error));
+
+            // Обработчик клика по кнопке подписки
+            subscribeBtn.addEventListener('click', function() {
+                const channelId = this.getAttribute('data-channel-id');
+                const channelName = this.getAttribute('data-channel-name');
+                const originalText = this.innerHTML;
+
+                // Блокируем кнопку и показываем загрузку
+                this.disabled = true;
+                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Обработка...';
+
+                fetch(`/subscribe/${channelId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Ошибка сервера');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        // Обновляем кнопку
+                        if (data.subscribed) {
+                            this.classList.add('subscribed');
+                            this.innerHTML = '<i class="fas fa-user-check"></i> Вы подписаны';
+                        } else {
+                            this.classList.remove('subscribed');
+                            this.innerHTML = '<i class="fas fa-user-plus"></i> Подписаться';
+                        }
+
+                        // Обновляем счетчик подписчиков
+                        if (subscribersSpan) {
+                            subscribersSpan.textContent = data.subscribers_count;
+                        }
+
+                        // Показываем уведомление
+                        showNotification(data.message, 'success');
+                    } else {
+                        showNotification(data.error || 'Ошибка при выполнении операции', 'error');
+                        this.innerHTML = originalText;
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка:', error);
+                    showNotification('Ошибка сети. Попробуйте еще раз.', 'error');
+                    this.innerHTML = originalText;
+                })
+                .finally(() => {
+                    this.disabled = false;
+                });
+            });
+        }
+
+        // ===== ЛАЙКИ =====
         const likeBtn = document.getElementById('like-btn');
         const likeCount = document.getElementById('like-count');
 
@@ -189,8 +330,10 @@
                 .then(data => {
                     if (data.liked) {
                         likeBtn.classList.add('liked');
+                        showNotification('❤️ Видео понравилось!', 'success');
                     } else {
                         likeBtn.classList.remove('liked');
+                        showNotification('Лайк убран', 'info');
                     }
                     if (likeCount) {
                         likeCount.textContent = data.like_count;
@@ -198,11 +341,12 @@
                 })
                 .catch(error => {
                     console.error('Error:', error);
+                    showNotification('Ошибка при оценке видео', 'error');
                 });
             });
         }
 
-        // Добавление в избранное
+        // ===== ИЗБРАННОЕ =====
         const favoriteBtn = document.getElementById('favorite-btn');
         if (favoriteBtn) {
             favoriteBtn.addEventListener('click', function() {
@@ -219,27 +363,37 @@
                     if (data.favorited) {
                         this.innerHTML = '<i class="fas fa-star"></i> <span>В избранном</span>';
                         this.classList.add('liked');
+                        showNotification('⭐ Добавлено в избранное', 'success');
                     } else {
                         this.innerHTML = '<i class="fas fa-star"></i> <span>В избранное</span>';
                         this.classList.remove('liked');
+                        showNotification('Удалено из избранного', 'info');
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
+                    showNotification('Ошибка при добавлении в избранное', 'error');
                 });
             });
         }
 
-        // Добавление в историю просмотров
+        // ===== ДОБАВЛЕНИЕ В ИСТОРИЮ =====
         const videoPlayer = document.getElementById('main-video');
         if (videoPlayer && {{ 'true' if current_user.is_authenticated else 'false' }}) {
+            let historyAdded = false;
             videoPlayer.addEventListener('play', function() {
-                const videoId = {{ video.id }};
-                fetch(`/api/add_to_history/${videoId}`, { method: 'POST' });
+                if (!historyAdded) {
+                    const videoId = {{ video.id }};
+                    fetch(`/api/add_to_history/${videoId}`, { method: 'POST' })
+                        .then(() => {
+                            historyAdded = true;
+                        })
+                        .catch(error => console.error('Ошибка добавления в историю:', error));
+                }
             });
         }
 
-        // Комментарии - исправленная версия без дублирования
+       // Комментарии - исправленная версия без дублирования
         const commentForm = document.getElementById('comment-form');
         if (commentForm) {
             // Удаляем предыдущие обработчики, если они были
@@ -350,17 +504,18 @@
             });
         }
 
-        // Поделиться
+        // ===== ПОДЕЛИТЬСЯ =====
         const shareBtn = document.getElementById('share-btn');
         if (shareBtn) {
             shareBtn.addEventListener('click', function() {
                 const url = window.location.href;
                 navigator.clipboard.writeText(url)
                     .then(() => {
-                        alert('Ссылка скопирована в буфер обмена!');
+                        showNotification('🔗 Ссылка скопирована в буфер обмена!', 'success');
                     })
                     .catch(err => {
                         console.error('Ошибка при копировании: ', err);
+                        showNotification('Ошибка при копировании ссылки', 'error');
                     });
             });
         }
