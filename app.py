@@ -358,6 +358,10 @@ def upload():
 def terms():
     return render_template('terms.html')
 
+@app.route('/faq')
+def faq():
+    return render_template('faq.html')
+
 
 @app.route('/watch-together')
 def watch_together():
