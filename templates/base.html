@@ -191,34 +191,37 @@
             {% endif %}
 
             <!-- Футер в сайдбаре -->
-            <div class="sidebar-footer">
-                <div class="sidebar-footer-section">
-                    <h4 class="sidebar-footer-title">О VideoHUB</h4>
-                    <ul class="sidebar-footer-menu">
-                        <li><a href="#">О сервисе</a></li>
-                        <li><a href="#">Авторские права</a></li>
-                        <li><a href="#">Связаться с нами</a></li>
-                        <li><a href="#">Авторам</a></li>
-                        <li><a href="#">Рекламодателям</a></li>
-                        <li><a href="#">Разработчикам</a></li>
-                    </ul>
-                </div>
+            <!-- Футер в сайдбаре -->
+<div class="sidebar-footer">
+    <div class="sidebar-footer-section">
+        <h4 class="sidebar-footer-title">О VideoHUB</h4>
+        <ul class="sidebar-footer-menu">
+            <li><a href="#">О сервисе</a></li>
+            <li><a href="#">Авторские права</a></li>
+            <li><a href="#">Связаться с нами</a></li>
+            <li><a href="#">Авторам</a></li>
+            <li><a href="#">Рекламодателям</a></li>
+            <li><a href="#">Разработчикам</a></li>
+        </ul>
+    </div>
 
-                <div class="sidebar-footer-section">
-                    <h4 class="sidebar-footer-title">Информация</h4>
-                    <ul class="sidebar-footer-menu">
-                        <li><a href="#">Условия использования</a></li>
-                        <li><a href="#">Конфиденциальность</a></li>
-                        <li><a href="#">Правила и безопасность</a></li>
-                        <li><a href="#">Как работает VideoHUB</a></li>
-                        <li><a href="{{ url_for('terms') }}">Пользовательское соглашение</a></li>
-                    </ul>
-                </div>
+    <div class="sidebar-footer-section">
+        <h4 class="sidebar-footer-title">Информация</h4>
+        <ul class="sidebar-footer-menu">
+            <li><a href="{{ url_for('terms') }}">Пользовательское соглашение</a></li>
+            <li><a href="{{ url_for('faq') }}">FAQ - Часто задаваемые вопросы</a></li> <!-- Добавленная строка -->
+            <li><a href="#">Условия использования</a></li>
+            <li><a href="#">Конфиденциальность</a></li>
+            <li><a href="#">Правила и безопасность</a></li>
+            <li><a href="#">Как работает VideoHUB</a></li>
+        </ul>
+    </div>
 
-                <div class="sidebar-footer-copyright">
-                    <p>&copy; 2026 VideoHUB. Все права защищены.</p>
-                </div>
-            </div>
+    <div class="sidebar-footer-copyright">
+        <p>&copy; 2026 VideoHUB. Все права защищены.</p>
+    </div>
+</div>
+
         </div>
     </aside>
     {% endif %}
