@@ -1,7 +1,7 @@
 import os
 import random
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
@@ -36,21 +36,48 @@ class User(UserMixin, db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     theme = db.Column(db.String(20), default='light')
     terms_accepted_at = db.Column(db.DateTime, nullable=True)
-    videos = db.relationship('Video', backref='author', lazy=True)
-    likes = db.relationship('Like', backref='user', lazy=True)
-    comments = db.relationship('Comment', backref='author', lazy=True)
+
+    # Новые поля для админ-панели
+    is_admin = db.Column(db.Boolean, default=False)
+    is_banned = db.Column(db.Boolean, default=False)
+    ban_reason = db.Column(db.String(500), nullable=True)
+    ban_expires = db.Column(db.DateTime, nullable=True)
+
+    videos = db.relationship('Video', backref='author', lazy=True, cascade='all, delete-orphan')
+    likes = db.relationship('Like', backref='user', lazy=True, cascade='all, delete-orphan')
+    comments = db.relationship('Comment', backref='author', lazy=True, cascade='all, delete-orphan')
     playlists = db.relationship('Playlist', backref='user', lazy=True, cascade='all, delete-orphan')
     favorites = db.relationship('Favorite', backref='user', lazy=True, cascade='all, delete-orphan')
     watch_history = db.relationship('WatchHistory', backref='user', lazy=True, cascade='all, delete-orphan')
     subscriptions = db.relationship('Subscription', foreign_keys='Subscription.subscriber_id', backref='subscriber',
-                                    lazy=True)
-    subscribers = db.relationship('Subscription', foreign_keys='Subscription.channel_id', backref='channel', lazy=True)
+                                    lazy=True, cascade='all, delete-orphan')
+    subscribers = db.relationship('Subscription', foreign_keys='Subscription.channel_id', backref='channel', lazy=True,
+                                  cascade='all, delete-orphan')
+
+    # Новые связи для админ-панели
+    bans_issued = db.relationship('Ban', foreign_keys='Ban.admin_id', backref='admin', lazy=True,
+                                  cascade='all, delete-orphan')
+    bans_received = db.relationship('Ban', foreign_keys='Ban.user_id', backref='user', lazy=True,
+                                    cascade='all, delete-orphan')
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+    def is_banned_active(self):
+        """Проверяет, активен ли бан пользователя"""
+        if not self.is_banned:
+            return False
+        if self.ban_expires and self.ban_expires < datetime.utcnow():
+            # Бан истек, автоматически разбаниваем
+            self.is_banned = False
+            self.ban_reason = None
+            self.ban_expires = None
+            db.session.commit()
+            return False
+        return True
 
 
 class Video(db.Model):
@@ -66,6 +93,11 @@ class Video(db.Model):
     likes = db.relationship('Like', backref='video', lazy=True, cascade='all, delete-orphan')
     comments = db.relationship('Comment', backref='video', lazy=True, cascade='all, delete-orphan')
     tags = db.Column(db.String(500))
+
+    # Связи с другими таблицами для каскадного удаления
+    watch_histories = db.relationship('WatchHistory', backref='video', lazy=True, cascade='all, delete-orphan')
+    playlist_videos = db.relationship('PlaylistVideo', backref='video', lazy=True, cascade='all, delete-orphan')
+    favorites_ref = db.relationship('Favorite', backref='video', lazy=True, cascade='all, delete-orphan')
 
 
 class Like(db.Model):
@@ -117,7 +149,6 @@ class WatchHistory(db.Model):
     video_id = db.Column(db.Integer, db.ForeignKey('video.id'), nullable=False)
     watched_at = db.Column(db.DateTime, default=datetime.utcnow)
     __table_args__ = (db.UniqueConstraint('user_id', 'video_id', name='unique_watch_history'),)
-    video = db.relationship('Video', backref='watch_histories', lazy=True)
 
 
 class Subscription(db.Model):
@@ -126,6 +157,22 @@ class Subscription(db.Model):
     channel_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     __table_args__ = (db.UniqueConstraint('subscriber_id', 'channel_id', name='unique_subscription'),)
+
+
+# Новая модель для истории банов
+class Ban(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    admin_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    reason = db.Column(db.String(500), nullable=False)
+    duration_type = db.Column(db.String(20), nullable=False)  # 'temporary', 'permanent'
+    duration_hours = db.Column(db.Integer, nullable=True)  # для временных банов
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    unbanned_at = db.Column(db.DateTime, nullable=True)
+    unbanned_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    unban_reason = db.Column(db.String(500), nullable=True)
 
 
 @login_manager.user_loader
@@ -236,6 +283,15 @@ def create_default_playlists(user_id):
         )
         db.session.add(playlist)
         db.session.commit()
+
+
+@app.before_request
+def check_if_banned():
+    """Проверяет, не забанен ли пользователь перед каждым запросом"""
+    if current_user.is_authenticated and current_user.is_banned_active():
+        # Пропускаем только страницу бана и страницы выхода
+        if request.endpoint not in ['banned', 'logout', 'static', 'uploaded_thumbnail', 'uploaded_video']:
+            return redirect(url_for('banned'))
 
 
 @app.route('/')
@@ -358,9 +414,11 @@ def upload():
 def terms():
     return render_template('terms.html')
 
+
 @app.route('/faq')
 def faq():
     return render_template('faq.html')
+
 
 @app.route('/watch-together')
 def watch_together():
@@ -380,6 +438,10 @@ def register():
         accept_terms = request.form.get('accept_terms')
 
         errors = []
+
+        # Запрещаем регистрацию с именем admin
+        if username.lower() == 'admin':
+            errors.append('Это имя пользователя недоступно')
 
         if accept_terms != 'on':
             errors.append('Вы должны принять пользовательское соглашение')
@@ -550,6 +612,14 @@ def delete_video(video_id):
         return jsonify({'error': 'Unauthorized'}), 403
 
     try:
+        # Удаляем все связанные записи
+        WatchHistory.query.filter_by(video_id=video_id).delete()
+        Like.query.filter_by(video_id=video_id).delete()
+        Comment.query.filter_by(video_id=video_id).delete()
+        PlaylistVideo.query.filter_by(video_id=video_id).delete()
+        Favorite.query.filter_by(video_id=video_id).delete()
+
+        # Удаляем файлы
         video_path = os.path.join(app.config['VIDEO_FOLDER'], video.filename)
         if os.path.exists(video_path):
             os.remove(video_path)
@@ -566,6 +636,7 @@ def delete_video(video_id):
 
     except Exception as e:
         db.session.rollback()
+        print(f"Ошибка при удалении видео: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -695,14 +766,12 @@ def search():
         # Получаем все видео из базы
         all_videos = Video.query.all()
 
-        # Фильтруем вручную на Python (100% надежный способ)
+        # Фильтруем вручную на Python
         for video in all_videos:
-            # Приводим название к нижнему регистру
             title_lower = video.title.lower() if video.title else ''
             desc_lower = video.description.lower() if video.description else ''
             tags_lower = video.tags.lower() if video.tags else ''
 
-            # Проверяем, содержится ли запрос (в нижнем регистре) в любом из полей
             if (query_lower in title_lower or
                     query_lower in desc_lower or
                     query_lower in tags_lower):
@@ -762,16 +831,22 @@ def toggle_favorite(video_id):
     })
 
 
+# ========== НОВЫЕ МАРШРУТЫ ДЛЯ ПЛЕЙЛИСТОВ ==========
+
 @app.route('/playlists')
 @login_required
 def playlists():
+    """Страница со списком плейлистов пользователя"""
     return render_template('playlists.html', playlists=current_user.playlists)
 
 
 @app.route('/playlist/create', methods=['POST'])
 @login_required
 def create_playlist():
+    """Создание нового плейлиста"""
     name = request.form.get('name', '').strip()
+    description = request.form.get('description', '').strip()
+    is_public = request.form.get('is_public') == 'on'  # Изменено: 'on' для чекбокса
 
     if not name:
         return jsonify({'error': 'Название обязательно'}), 400
@@ -779,34 +854,174 @@ def create_playlist():
     playlist = Playlist(
         user_id=current_user.id,
         name=name,
-        description=request.form.get('description', '').strip(),
-        is_public=request.form.get('is_public', 'true') == 'true'
+        description=description,
+        is_public=is_public
     )
 
     db.session.add(playlist)
     db.session.commit()
 
+    flash('Плейлист успешно создан!', 'success')
     return jsonify({
         'success': True,
-        'playlist': {'id': playlist.id, 'name': playlist.name}
+        'playlist': {
+            'id': playlist.id,
+            'name': playlist.name,
+            'description': playlist.description,
+            'is_public': playlist.is_public
+        }
+    })
+
+
+@app.route('/playlist/delete/<int:playlist_id>', methods=['POST'])
+@login_required
+def delete_playlist(playlist_id):
+    """Удаление плейлиста"""
+    playlist = Playlist.query.get_or_404(playlist_id)
+
+    # Проверяем, принадлежит ли плейлист текущему пользователю
+    if playlist.user_id != current_user.id:
+        return jsonify({'error': 'Недостаточно прав'}), 403
+
+    # Запрещаем удаление стандартного плейлиста "Избранное"
+    if playlist.name == "Избранное":
+        return jsonify({'error': 'Нельзя удалить стандартный плейлист "Избранное"'}), 400
+
+    try:
+        # Удаляем все видео из плейлиста (каскадно удалятся автоматически)
+        db.session.delete(playlist)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/playlist/toggle_public/<int:playlist_id>', methods=['POST'])
+@login_required
+def toggle_playlist_public(playlist_id):
+    """Переключение публичности плейлиста"""
+    playlist = Playlist.query.get_or_404(playlist_id)
+
+    # Проверяем, принадлежит ли плейлист текущему пользователю
+    if playlist.user_id != current_user.id:
+        return jsonify({'error': 'Недостаточно прав'}), 403
+
+    playlist.is_public = not playlist.is_public
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'is_public': playlist.is_public
     })
 
 
 @app.route('/playlist/<int:playlist_id>')
 @login_required
 def playlist_detail(playlist_id):
+    """Страница просмотра плейлиста"""
     playlist = Playlist.query.get_or_404(playlist_id)
 
-    if playlist.user_id != current_user.id and not playlist.is_public:
+    # Проверяем доступ: если плейлист приватный и не принадлежит текущему пользователю
+    if not playlist.is_public and playlist.user_id != current_user.id:
         flash('Этот плейлист приватный', 'error')
         return redirect(url_for('playlists'))
 
-    return render_template('playlist_detail.html', playlist=playlist)
+    # Получаем видео из плейлиста
+    videos = [pv.video for pv in playlist.videos]
+
+    return render_template('playlist_detail.html', playlist=playlist, videos=videos)
+
+
+@app.route('/api/user/playlists')
+@login_required
+def get_user_playlists():
+    """API для получения списка плейлистов пользователя (для модального окна)"""
+    playlists = Playlist.query.filter_by(user_id=current_user.id).all()
+    return jsonify([{
+        'id': p.id,
+        'name': p.name,
+        'is_public': p.is_public,
+        'video_count': len(p.videos)
+    } for p in playlists])
+
+
+@app.route('/playlist/<int:playlist_id>/add_video', methods=['POST'])
+@login_required
+def add_video_to_playlist(playlist_id):
+    """Добавление видео в плейлист"""
+    data = request.get_json()
+    video_id = data.get('video_id')
+
+    if not video_id:
+        return jsonify({'error': 'ID видео не указан'}), 400
+
+    playlist = Playlist.query.get_or_404(playlist_id)
+    video = Video.query.get_or_404(video_id)
+
+    # Проверяем, принадлежит ли плейлист текущему пользователю
+    if playlist.user_id != current_user.id:
+        return jsonify({'error': 'Недостаточно прав'}), 403
+
+    # Проверяем, не добавлено ли видео уже в плейлист
+    existing = PlaylistVideo.query.filter_by(
+        playlist_id=playlist_id,
+        video_id=video_id
+    ).first()
+
+    if existing:
+        return jsonify({'error': 'Видео уже в этом плейлисте'}), 400
+
+    # Добавляем видео в плейлист
+    playlist_video = PlaylistVideo(
+        playlist_id=playlist_id,
+        video_id=video_id
+    )
+    db.session.add(playlist_video)
+
+    # Если у плейлиста нет обложки, устанавливаем обложку первого добавленного видео
+    if playlist.thumbnail == 'default-playlist.png' and video.thumbnail:
+        playlist.thumbnail = video.thumbnail
+
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'message': f'Видео добавлено в плейлист "{playlist.name}"'
+    })
+
+
+@app.route('/playlist/<int:playlist_id>/remove_video/<int:video_id>', methods=['POST'])
+@login_required
+def remove_video_from_playlist(playlist_id, video_id):
+    """Удаление видео из плейлиста"""
+    playlist = Playlist.query.get_or_404(playlist_id)
+
+    # Проверяем, принадлежит ли плейлист текущему пользователю
+    if playlist.user_id != current_user.id:
+        return jsonify({'error': 'Недостаточно прав'}), 403
+
+    playlist_video = PlaylistVideo.query.filter_by(
+        playlist_id=playlist_id,
+        video_id=video_id
+    ).first()
+
+    if not playlist_video:
+        return jsonify({'error': 'Видео не найдено в плейлисте'}), 404
+
+    db.session.delete(playlist_video)
+    db.session.commit()
+
+    return jsonify({'success': True})
+
+
+# ========== КОНЕЦ НОВЫХ МАРШРУТОВ ==========
 
 
 @app.route('/playlist/<int:playlist_id>/add/<int:video_id>', methods=['POST'])
 @login_required
 def add_to_playlist(playlist_id, video_id):
+    """Старый метод для обратной совместимости"""
     playlist = Playlist.query.get_or_404(playlist_id)
 
     if playlist.user_id != current_user.id:
@@ -826,7 +1041,7 @@ def add_to_playlist(playlist_id, video_id):
 def watch_history():
     history = WatchHistory.query.filter_by(user_id=current_user.id).order_by(WatchHistory.watched_at.desc()).limit(
         50).all()
-    return render_template('history.html', videos=[h.video for h in history])
+    return render_template('history.html', videos=[h.video for h in history if h.video])
 
 
 @app.route('/api/add_to_history/<int:video_id>', methods=['POST'])
@@ -861,8 +1076,6 @@ def uploaded_video(filename):
 def uploaded_thumbnail(filename):
     return send_from_directory(app.config['THUMBNAIL_FOLDER'], filename or 'default_avatar.png')
 
-
-# Добавьте после других маршрутов
 
 @app.route('/subscribe/<int:channel_id>', methods=['POST'])
 @login_required
@@ -923,6 +1136,200 @@ def get_subscription_status(channel_id):
     })
 
 
+# ========== АДМИН ПАНЕЛЬ ==========
+
+@app.route('/admin')
+@login_required
+def admin_panel():
+    if not current_user.is_admin:
+        flash('У вас нет доступа к этой странице', 'error')
+        return redirect(url_for('index'))
+
+    users = User.query.all()
+    videos = Video.query.all()
+    comments = Comment.query.all()
+    ban_history = Ban.query.order_by(Ban.created_at.desc()).all()
+
+    return render_template('admin.html',
+                           users=users,
+                           videos=videos,
+                           comments=comments,
+                           ban_history=ban_history,
+                           total_users=len(users),
+                           total_videos=len(videos),
+                           total_comments=len(comments),
+                           banned_users=User.query.filter_by(is_banned=True).count())
+
+
+@app.route('/admin/ban', methods=['POST'])
+@login_required
+def admin_ban():
+    if not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    user_id = request.form.get('user_id')
+    reason = request.form.get('reason')
+    ban_type = request.form.get('ban_type')
+    duration = request.form.get('duration', type=int)
+
+    if not user_id or not reason:
+        return jsonify({'error': 'Не все поля заполнены'}), 400
+
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'Пользователь не найден'}), 404
+
+    if user.is_admin:
+        return jsonify({'error': 'Нельзя забанить администратора'}), 400
+
+    expires_at = None
+    if ban_type == 'temporary' and duration:
+        expires_at = datetime.utcnow() + timedelta(hours=duration)
+
+    # Создаем запись о бане
+    ban = Ban(
+        user_id=user.id,
+        admin_id=current_user.id,
+        reason=reason,
+        duration_type='permanent' if ban_type == 'permanent' else 'temporary',
+        duration_hours=duration if ban_type == 'temporary' else None,
+        expires_at=expires_at
+    )
+
+    # Обновляем пользователя
+    user.is_banned = True
+    user.ban_reason = reason
+    user.ban_expires = expires_at
+
+    db.session.add(ban)
+    db.session.commit()
+
+    return jsonify({'success': True})
+
+
+@app.route('/admin/unban', methods=['POST'])
+@login_required
+def admin_unban():
+    if not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    user_id = request.form.get('user_id')
+    reason = request.form.get('reason')
+
+    if not user_id:
+        return jsonify({'error': 'Не указан пользователь'}), 400
+
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'Пользователь не найден'}), 404
+
+    # Находим активный бан
+    active_ban = Ban.query.filter_by(user_id=user_id, is_active=True).first()
+    if active_ban:
+        active_ban.is_active = False
+        active_ban.unbanned_at = datetime.utcnow()
+        active_ban.unbanned_by = current_user.id
+        active_ban.unban_reason = reason
+
+    # Обновляем пользователя
+    user.is_banned = False
+    user.ban_reason = None
+    user.ban_expires = None
+
+    db.session.commit()
+
+    return jsonify({'success': True})
+
+
+@app.route('/admin/delete/video/<int:video_id>', methods=['POST'])
+@login_required
+def admin_delete_video(video_id):
+    if not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    video = Video.query.get(video_id)
+    if not video:
+        return jsonify({'error': 'Видео не найдено'}), 404
+
+    try:
+        # Удаляем все связанные записи
+        WatchHistory.query.filter_by(video_id=video_id).delete()
+        Like.query.filter_by(video_id=video_id).delete()
+        Comment.query.filter_by(video_id=video_id).delete()
+        PlaylistVideo.query.filter_by(video_id=video_id).delete()
+        Favorite.query.filter_by(video_id=video_id).delete()
+
+        # Удаляем файлы
+        video_path = os.path.join(app.config['VIDEO_FOLDER'], video.filename)
+        if os.path.exists(video_path):
+            os.remove(video_path)
+
+        if video.thumbnail and video.thumbnail != 'default-thumbnail.jpg':
+            thumb_path = os.path.join(app.config['THUMBNAIL_FOLDER'], video.thumbnail)
+            if os.path.exists(thumb_path):
+                os.remove(thumb_path)
+
+        db.session.delete(video)
+        db.session.commit()
+
+        return jsonify({'success': True})
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Ошибка при удалении видео: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/delete/comment/<int:comment_id>', methods=['POST'])
+@login_required
+def admin_delete_comment(comment_id):
+    if not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    comment = Comment.query.get(comment_id)
+    if not comment:
+        return jsonify({'error': 'Комментарий не найден'}), 404
+
+    try:
+        db.session.delete(comment)
+        db.session.commit()
+        return jsonify({'success': True})
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Ошибка при удалении комментария: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/admin/user/<int:user_id>')
+@login_required
+def admin_user_detail(user_id):
+    if not current_user.is_admin:
+        flash('У вас нет доступа к этой странице', 'error')
+        return redirect(url_for('index'))
+
+    user = User.query.get_or_404(user_id)
+    videos = Video.query.filter_by(user_id=user_id).order_by(Video.created_at.desc()).all()
+    comments = Comment.query.filter_by(user_id=user_id).order_by(Comment.created_at.desc()).all()
+
+    return render_template('admin_user_detail.html',
+                           user=user,
+                           videos=videos,
+                           comments=comments)
+
+
+@app.route('/banned')
+@login_required
+def banned():
+    if not current_user.is_banned_active():
+        return redirect(url_for('index'))
+
+    # Получаем активный бан
+    ban = Ban.query.filter_by(user_id=current_user.id, is_active=True).first()
+
+    return render_template('banned.html', ban=ban)
+
+
 @app.errorhandler(404)
 def not_found_error(error):
     return render_template('404.html'), 404
@@ -935,11 +1342,47 @@ def create_tables():
         app.tables_created = True
 
 
+@app.route('/api/playlist/check_video/<int:video_id>')
+@login_required
+def check_video_in_playlists(video_id):
+    """Проверяет, в каких плейлистах пользователя уже есть это видео"""
+    # Получаем все плейлисты пользователя
+    playlists = Playlist.query.filter_by(user_id=current_user.id).all()
+
+    # Проверяем каждый плейлист на наличие видео
+    playlist_ids = []
+    for playlist in playlists:
+        existing = PlaylistVideo.query.filter_by(
+            playlist_id=playlist.id,
+            video_id=video_id
+        ).first()
+        if existing:
+            playlist_ids.append(playlist.id)
+
+    return jsonify({'playlist_ids': playlist_ids})
+
+
+
 def init_database():
     with app.app_context():
         try:
             db.create_all()
             print("Таблицы базы данных созданы")
+
+            # Создаем стандартного администратора
+            admin = User.query.filter_by(username='admin').first()
+            if not admin:
+                admin = User(
+                    username='admin',
+                    email='admin@videohub.ru',
+                    avatar='default_avatar.png',
+                    is_admin=True,
+                    terms_accepted_at=datetime.utcnow()
+                )
+                admin.set_password('adminadmin')
+                db.session.add(admin)
+                db.session.commit()
+                print("Администратор создан (логин: admin, пароль: adminadmin)")
 
             for user in User.query.all():
                 create_default_playlists(user.id)
@@ -952,4 +1395,5 @@ def init_database():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
+        init_database()
     app.run(host='0.0.0.0', port=5001, debug=True)

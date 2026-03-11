@@ -1,246 +1,56 @@
-/* ========== RESPONSIVE ========== */
+/* ========== ДОПОЛНИТЕЛЬНЫЕ МОБИЛЬНЫЕ СТИЛИ ========== */
 
 @media (max-width: 768px) {
-    .navbar {
-        height: 60px;
-    }
-
-    .navbar .container {
-        height: 60px;
-        padding: 0 15px;
-        gap: 15px;
-    }
-
-    /* Search */
-    .search-bar {
-        display: none !important;
-    }
-
-    .mobile-search-toggle {
-        display: flex !important;
-    }
-
-    .mobile-search {
-        top: 60px;
-    }
-
-    /* Guest menu */
-    .guest-menu {
-        gap: 10px;
-    }
-
-    .btn-login {
-        padding: 0 15px;
-        font-size: 14px;
-        height: 36px;
-    }
-
-    .btn-settings {
-        width: 36px;
-        height: 36px;
-        font-size: 18px;
-    }
-
-    .guest-settings-modal {
-        right: 10px;
-        left: auto;
-        min-width: 200px;
-    }
-
-    .guest-settings-modal::before {
-        right: 50px;
-    }
-
-    /* Sidebar */
-    .sidebar {
-        transform: translateX(-100%);
-        width: 280px;
-        top: 60px;
-        height: calc(100vh - 60px);
-        z-index: 900;
-        transition: transform 0.3s ease;
-    }
-    .sidebar.active {
-        transform: translateX(0);
-    }
-
-    /* Main content */
-    .main-content {
-        margin-left: 0;
-        min-height: calc(100vh - 60px);
-    }
-    .main-content.video-page-content {
-        margin-left: 0;
-    }
-
-    /* Mobile menu button */
-    .mobile-sidebar-toggle {
-        display: flex !important;
-    }
-
-    /* Hero */
-    .hero-content h1 {
-        font-size: 32px;
-    }
-    .hero-buttons {
+    /* Исправление для поля комментариев */
+    .comment-input-group {
         flex-direction: column;
-        align-items: center;
+        align-items: stretch;
     }
 
-    /* Grids */
-    .video-grid {
-        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    }
-
-    /* Video page */
-    .video-player-section {
-        grid-template-columns: 1fr;
-    }
-    .video-stats {
-        flex-direction: column;
-        gap: 10px;
-    }
-
-    /* Profile */
-    .profile-header {
-        flex-direction: column;
-        text-align: center;
-        gap: 20px;
-    }
-    .profile-avatar img {
-        width: 120px;
-        height: 120px;
-    }
-    .profile-name-section {
-        justify-content: center;
-    }
-    .profile-stats {
-        justify-content: center;
-        gap: 20px;
-    }
-    .profile-tabs {
-        flex-direction: column;
-    }
-    .tab-btn {
-        justify-content: center;
-    }
-    .tab-btn.active {
-        border-bottom: none;
-        border-right: 3px solid var(--primary);
-    }
-
-    /* Forms */
-    .edit-profile-container,
-    .edit-video-container,
-    .upload-container {
-        padding: 20px;
-    }
-    .avatar-upload-section,
-    .thumbnail-upload-section {
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-    }
-    .form-actions {
-        flex-direction: column;
-    }
-    .form-actions .btn {
+    .comment-input-group button {
         width: 100%;
+        margin-top: 5px;
     }
 
-    /* Playlists */
-    .playlist-header {
-        flex-direction: column;
+    /* Исправление для кнопок действий */
+    .video-actions {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
     }
-    .playlist-cover {
+
+    .btn-action {
         width: 100%;
-        height: 200px;
+        min-width: 0;
+        padding: 8px 12px;
     }
 
-    /* Search */
-    .tips-grid {
-        grid-template-columns: 1fr;
-    }
-    .no-results-actions .btn {
-        width: 100%;
-    }
-
-    /* User menu */
-    .dropdown {
-        position: fixed;
-        top: 60px;
-        right: 20px;
-        left: 20px;
-        min-width: auto;
-    }
-    .user-menu:hover .dropdown {
-        display: none;
-    }
-    .user-menu.active .dropdown {
-        display: block;
-    }
-}
-
-@media (max-width: 576px) {
-    .navbar .container {
-        padding: 0 10px;
-    }
-
-    .video-grid {
-        grid-template-columns: 1fr;
-    }
-    .container {
-        padding: 0 15px;
-    }
-}
-
-@media (max-width: 480px) {
-    .logo span {
-        display: none;
-    }
-
-    .logo i {
-        margin-right: 0;
-    }
-
-    .btn-login {
-        padding: 0 12px;
+    .btn-action span {
         font-size: 13px;
     }
-}
 
-/* ========== SIDEBAR FOOTER MOBILE ========== */
-@media (max-width: 768px) {
-    .sidebar-footer {
-        margin-bottom: 20px;
+    /* Исправление для кнопки подписки */
+    .subscribe-btn {
+        width: 100%;
+        margin-top: 10px;
     }
 
-    .sidebar-footer-menu a {
-        padding: 8px 10px;
+    .video-author-info {
+        flex-direction: column;
+        text-align: center;
     }
 
-    .sidebar {
-        transform: translateX(-100%);
-        width: 280px;
-        top: 60px;
-        height: calc(100vh - 60px);
-        z-index: 900;
-        transition: transform 0.3s ease;
-    }
-
-    .sidebar.active {
-        transform: translateX(0);
+    .author-details {
+        margin: 10px 0;
     }
 }
 
 @media (max-width: 480px) {
-    .sidebar-footer-title {
-        font-size: 12px;
+    .video-actions {
+        grid-template-columns: 1fr;
     }
 
-    .sidebar-footer-menu a {
-        font-size: 12px;
-        padding: 6px 8px;
+    .btn-action {
+        justify-content: center;
     }
 }
-

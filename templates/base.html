@@ -16,7 +16,38 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body class="{% if request.endpoint != 'video_detail' %}has-sidebar{% endif %}">
-    <!-- Навигация -->
+
+    {% if current_user.is_authenticated and current_user.is_banned_active() %}
+    <!-- Для забаненных показываем только простую навигацию -->
+    <nav class="navbar">
+        <div class="container">
+            <a href="{{ url_for('index') }}" class="logo">
+                <i class="fas fa-play-circle"></i>
+                <span>VideoHUB</span>
+            </a>
+
+            <div class="nav-links">
+                <div class="user-menu">
+                    <div class="user-avatar">
+                        <img src="{{ url_for('uploaded_thumbnail', filename=current_user.avatar) }}"
+                             alt="{{ current_user.username }}"
+                             onerror="this.src='{{ url_for('uploaded_thumbnail', filename='default_avatar.png') }}'">
+                    </div>
+                    <div class="dropdown">
+                        <a href="{{ url_for('banned') }}">
+                            <i class="fas fa-info-circle"></i> Статус бана
+                        </a>
+                        <a href="{{ url_for('logout') }}">
+                            <i class="fas fa-sign-out-alt"></i> Выйти
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    {% else %}
+    <!-- Обычная навигация для всех остальных -->
     <nav class="navbar">
         <div class="container">
             <a href="{{ url_for('index') }}" class="logo">
@@ -74,6 +105,13 @@
                             <a href="{{ url_for('upload') }}">
                                 <i class="fas fa-upload"></i> Загрузить видео
                             </a>
+
+                            {% if current_user.is_admin %}
+                            <a href="{{ url_for('admin_panel') }}">
+                                <i class="fas fa-shield-alt"></i> Админ панель
+                            </a>
+                            {% endif %}
+
                             <button class="theme-toggle" onclick="window.toggleTheme()">
                                 <i class="fas fa-moon"></i>
                                 <span>Ночная тема</span>
@@ -94,9 +132,10 @@
             </form>
         </div>
     </nav>
+    {% endif %}
 
-    <!-- Боковая панель -->
-    {% if request.endpoint != 'video_detail' %}
+    <!-- Боковая панель (не показываем забаненным) -->
+    {% if request.endpoint != 'video_detail' and not (current_user.is_authenticated and current_user.is_banned_active()) %}
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-content">
             <div class="sidebar-section">
@@ -191,36 +230,35 @@
             {% endif %}
 
             <!-- Футер в сайдбаре -->
-            <!-- Футер в сайдбаре -->
-<div class="sidebar-footer">
-    <div class="sidebar-footer-section">
-        <h4 class="sidebar-footer-title">О VideoHUB</h4>
-        <ul class="sidebar-footer-menu">
-            <li><a href="#">О сервисе</a></li>
-            <li><a href="#">Авторские права</a></li>
-            <li><a href="#">Связаться с нами</a></li>
-            <li><a href="#">Авторам</a></li>
-            <li><a href="#">Рекламодателям</a></li>
-            <li><a href="#">Разработчикам</a></li>
-        </ul>
-    </div>
+            <div class="sidebar-footer">
+                <div class="sidebar-footer-section">
+                    <h4 class="sidebar-footer-title">О VideoHUB</h4>
+                    <ul class="sidebar-footer-menu">
+                        <li><a href="#">О сервисе</a></li>
+                        <li><a href="#">Авторские права</a></li>
+                        <li><a href="#">Связаться с нами</a></li>
+                        <li><a href="#">Авторам</a></li>
+                        <li><a href="#">Рекламодателям</a></li>
+                        <li><a href="#">Разработчикам</a></li>
+                    </ul>
+                </div>
 
-    <div class="sidebar-footer-section">
-        <h4 class="sidebar-footer-title">Информация</h4>
-        <ul class="sidebar-footer-menu">
-            <li><a href="{{ url_for('terms') }}">Пользовательское соглашение</a></li>
-            <li><a href="{{ url_for('faq') }}">FAQ - Часто задаваемые вопросы</a></li> <!-- Добавленная строка -->
-            <li><a href="#">Условия использования</a></li>
-            <li><a href="#">Конфиденциальность</a></li>
-            <li><a href="#">Правила и безопасность</a></li>
-            <li><a href="#">Как работает VideoHUB</a></li>
-        </ul>
-    </div>
+                <div class="sidebar-footer-section">
+                    <h4 class="sidebar-footer-title">Информация</h4>
+                    <ul class="sidebar-footer-menu">
+                        <li><a href="{{ url_for('terms') }}">Пользовательское соглашение</a></li>
+                        <li><a href="{{ url_for('faq') }}">FAQ - Часто задаваемые вопросы</a></li>
+                        <li><a href="#">Условия использования</a></li>
+                        <li><a href="#">Конфиденциальность</a></li>
+                        <li><a href="#">Правила и безопасность</a></li>
+                        <li><a href="#">Как работает VideoHUB</a></li>
+                    </ul>
+                </div>
 
-    <div class="sidebar-footer-copyright">
-        <p>&copy; 2026 VideoHUB. Все права защищены.</p>
-    </div>
-</div>
+                <div class="sidebar-footer-copyright">
+                    <p>&copy; 2026 VideoHUB. Все права защищены.</p>
+                </div>
+            </div>
 
         </div>
     </aside>

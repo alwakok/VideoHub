@@ -1,4 +1,5 @@
 /* ========== COMPONENTS ========== */
+
 /* Buttons */
 .btn {
     display: inline-block;
@@ -29,8 +30,9 @@
 .btn-block { display: block; width: 100%; }
 
 .btn-action {
-    display: flex;
+    display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
     padding: 10px 15px;
     background: var(--secondary);
@@ -41,6 +43,7 @@
     color: var(--text-dark);
     transition: all 0.3s;
     font-family: inherit;
+    min-width: 100px;
 }
 
 .btn-action:hover { background: var(--primary); color: white; }
@@ -111,9 +114,7 @@
     cursor: pointer;
 }
 
-/* Video Grid - расширенная сетка */
-/* ========== COMPONENTS ========== */
-/* Video Grid - расширенная сетка */
+/* Video Grid */
 .video-section {
     width: 100%;
     margin-bottom: 40px;
@@ -409,10 +410,46 @@
     display: flex;
     gap: 10px;
     align-items: center;
+    width: 100%;
+}
+
+.comment-input-group input {
+    flex: 1;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 14px;
+    font-family: inherit;
+    height: 40px;
+    min-width: 0;
+}
+
+.comment-input-group button {
+    padding: 8px 16px;
+    height: 40px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s;
+}
+
+.comment-input-group button:hover {
+    background: var(--primary-dark);
+    transform: translateY(-2px);
+}
+
+.comment-input-group button i {
+    margin-right: 5px;
 }
 
 .comment-avatar img {
-    width: 32px; height: 32px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     object-fit: cover;
     border: 2px solid var(--primary);
@@ -458,6 +495,14 @@
     margin-bottom: 30px;
 }
 
+/* Video Actions */
+.video-actions {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 25px;
+    flex-wrap: wrap;
+}
+
 /* Upload Area */
 .upload-area {
     border: 3px dashed var(--border);
@@ -492,35 +537,70 @@
     position: fixed;
     top: 20px;
     right: 20px;
-    padding: 15px 20px;
-    color: white;
+    padding: 12px 24px;
     border-radius: var(--radius);
-    z-index: 1000;
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+    z-index: 9999;
     animation: slideIn 0.3s ease;
-    box-shadow: var(--shadow);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    max-width: 350px;
 }
+
 .notification-success { background: var(--success); }
 .notification-error { background: var(--error); }
 .notification-info { background: var(--primary); }
+.notification-warning { background: #ff9800; }
 
-/* Стили для кнопки подписки */
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideOut {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(100%); opacity: 0; }
+}
+
+/* Кнопка подписки */
 .subscribe-btn {
     transition: all 0.3s ease;
     min-width: 140px;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: var(--text-dark);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.subscribe-btn:hover {
+    background: var(--primary);
+    transform: translateY(-2px);
 }
 
 .subscribe-btn.subscribed {
-    background-color: var(--success-color, #5CB85C);
-    border-color: var(--success-color, #5CB85C);
+    background-color: var(--success);
 }
 
 .subscribe-btn.subscribed:hover {
-    background-color: var(--danger-color, #D9534F);
-    border-color: var(--danger-color, #D9534F);
+    background-color: var(--error);
 }
 
 .subscribe-btn.subscribed:hover i::before {
-    content: "\f235"; /* fa-user-times в Font Awesome */
+    content: "\f235";
+}
+
+.subscribe-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
 }
 
 .author-subscribers {
@@ -534,4 +614,33 @@
 
 .author-subscribers i {
     font-size: 12px;
+}
+
+/* Адаптивность для мобильных */
+@media (max-width: 768px) {
+    .video-actions {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+
+    .btn-action {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .comment-input-group {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .comment-input-group button {
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .video-actions {
+        grid-template-columns: 1fr;
+    }
 }

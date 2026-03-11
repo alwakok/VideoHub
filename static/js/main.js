@@ -2,6 +2,8 @@
 (function() {
     'use strict';
 
+    let isSubmitting = false;
+
     function init() {
         initLikes();
         initComments();
@@ -10,34 +12,101 @@
         initGuestMenu();
         initAvatarErrorHandler();
         initFileUploads();
+        initSubscribeButtons();
+        initShareButtons();
+        initFavoriteButtons();
     }
 
-    // Лайки и избранное
+    // Функция для показа уведомлений
+    window.showNotification = function(message, type = 'info') {
+        const colors = {
+            success: '#5CB85C',
+            error: '#D9534F',
+            info: '#B380E6',
+            warning: '#FFA500'
+        };
+
+        // Удаляем предыдущее уведомление
+        const oldNotification = document.querySelector('.notification');
+        if (oldNotification) {
+            oldNotification.remove();
+        }
+
+        const notification = document.createElement('div');
+        notification.className = `notification notification-${type}`;
+        notification.textContent = message;
+        notification.style.backgroundColor = colors[type] || colors.info;
+
+        document.body.appendChild(notification);
+
+        setTimeout(() => {
+            notification.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => notification.remove(), 300);
+        }, 3000);
+    };
+
+    // Лайки
     function initLikes() {
-        document.querySelectorAll('.like-btn, #like-btn, .remove-favorite, #favorite-btn').forEach(button => {
+        document.querySelectorAll('.like-btn, #like-btn').forEach(button => {
             button.addEventListener('click', function(e) {
                 e.preventDefault();
                 const videoId = this.dataset.videoId || this.getAttribute('data-video-id');
                 if (!videoId) return;
 
-                const isFavorite = this.id === 'favorite-btn';
-                const url = isFavorite ? `/favorite/${videoId}` : `/like/${videoId}`;
+                fetch(`/like/${videoId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    this.classList.toggle('liked', data.liked);
 
-                fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' } })
-                    .then(res => res.json())
-                    .then(data => {
-                        this.classList.toggle('liked', data.liked || data.favorited);
+                    const count = this.querySelector('#like-count, .like-count');
+                    if (count) count.textContent = data.like_count;
 
-                        if (isFavorite) {
-                            this.innerHTML = data.favorited ?
-                                '<i class="fas fa-star"></i> <span>В избранном</span>' :
-                                '<i class="fas fa-star"></i> <span>В избранное</span>';
+                    window.showNotification(
+                        data.liked ? '❤️ Видео понравилось!' : 'Лайк убран',
+                        'success'
+                    );
+                })
+                .catch(() => window.showNotification('Ошибка при оценке видео', 'error'));
+            });
+        });
+    }
+
+    // Избранное
+    function initFavoriteButtons() {
+        document.querySelectorAll('#favorite-btn, .remove-favorite').forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                const videoId = this.dataset.videoId || this.getAttribute('data-video-id');
+                if (!videoId) return;
+
+                fetch(`/favorite/${videoId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (this.id === 'favorite-btn') {
+                        if (data.favorited) {
+                            this.innerHTML = '<i class="fas fa-star"></i> <span>В избранном</span>';
+                            this.classList.add('liked');
+                            window.showNotification('⭐ Добавлено в избранное', 'success');
                         } else {
-                            const count = this.querySelector('#like-count, .like-count');
-                            if (count) count.textContent = data.like_count;
+                            this.innerHTML = '<i class="fas fa-star"></i> <span>В избранное</span>';
+                            this.classList.remove('liked');
+                            window.showNotification('Удалено из избранного', 'info');
                         }
-                    })
-                    .catch(console.error);
+                    } else if (data.favorited === false) {
+                        const card = this.closest('.video-card');
+                        if (card) {
+                            card.remove();
+                            window.showNotification('Удалено из избранного', 'info');
+                        }
+                    }
+                })
+                .catch(() => window.showNotification('Ошибка при добавлении в избранное', 'error'));
             });
         });
     }
@@ -47,38 +116,57 @@
         const form = document.getElementById('comment-form');
         if (!form) return;
 
-        form.addEventListener('submit', function(e) {
+        // Удаляем старые обработчики
+        const newForm = form.cloneNode(true);
+        form.parentNode.replaceChild(newForm, form);
+
+        newForm.addEventListener('submit', function(e) {
             e.preventDefault();
+
+            if (isSubmitting) return;
 
             const videoId = this.dataset.videoId;
             const input = document.getElementById('comment-input');
             const content = input.value.trim();
-
-            if (!content) return;
-
             const submitBtn = this.querySelector('button[type="submit"]');
-            const originalText = submitBtn.innerHTML;
 
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            if (!content) {
+                window.showNotification('Введите текст комментария', 'warning');
+                return;
+            }
+
+            isSubmitting = true;
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Отправка...';
             submitBtn.disabled = true;
+
+            const formData = new FormData();
+            formData.append('content', content);
 
             fetch(`/comment/${videoId}`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({ 'content': content })
+                body: formData
             })
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) throw new Error('Ошибка сервера');
+                return res.json();
+            })
             .then(data => {
-                if (data.success) {
+                if (data.success && data.comment) {
                     addCommentToDOM(data.comment);
                     input.value = '';
 
                     const count = document.getElementById('comments-count');
-                    if (count) count.textContent = parseInt(count.textContent) + 1;
+                    if (count) {
+                        count.textContent = parseInt(count.textContent) + 1;
+                    }
+
+                    window.showNotification('Комментарий добавлен', 'success');
                 }
             })
-            .catch(console.error)
+            .catch(() => window.showNotification('Ошибка при добавлении комментария', 'error'))
             .finally(() => {
+                isSubmitting = false;
                 submitBtn.innerHTML = originalText;
                 submitBtn.disabled = false;
             });
@@ -106,7 +194,84 @@
                 </div>
             </div>
         `;
-        list.insertAdjacentHTML('afterbegin', html);
+
+        if (list.firstChild) {
+            list.insertAdjacentHTML('afterbegin', html);
+        } else {
+            list.innerHTML = html;
+        }
+    }
+
+    // Подписки
+    function initSubscribeButtons() {
+        document.querySelectorAll('.subscribe-btn').forEach(btn => {
+            const channelId = btn.dataset.channelId || btn.dataset.userId;
+
+            if (channelId) {
+                fetch(`/api/channel/${channelId}/subscription-status`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.subscribed) {
+                            btn.classList.add('subscribed');
+                            btn.innerHTML = '<i class="fas fa-user-check"></i> Вы подписаны';
+                        }
+
+                        const subscribersSpan = document.getElementById('subscribers-count-value');
+                        if (subscribersSpan) {
+                            subscribersSpan.textContent = data.subscribers_count;
+                        }
+                    })
+                    .catch(console.error);
+
+                btn.addEventListener('click', function() {
+                    const channelId = this.dataset.channelId || this.dataset.userId;
+                    const originalText = this.innerHTML;
+
+                    this.disabled = true;
+                    this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Обработка...';
+
+                    fetch(`/subscribe/${channelId}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            if (data.subscribed) {
+                                this.classList.add('subscribed');
+                                this.innerHTML = '<i class="fas fa-user-check"></i> Вы подписаны';
+                            } else {
+                                this.classList.remove('subscribed');
+                                this.innerHTML = '<i class="fas fa-user-plus"></i> Подписаться';
+                            }
+
+                            const subscribersSpan = document.getElementById('subscribers-count-value');
+                            if (subscribersSpan) {
+                                subscribersSpan.textContent = data.subscribers_count;
+                            }
+
+                            window.showNotification(data.message, 'success');
+                        }
+                    })
+                    .catch(() => window.showNotification('Ошибка при выполнении операции', 'error'))
+                    .finally(() => {
+                        this.disabled = false;
+                    });
+                });
+            }
+        });
+    }
+
+    // Поделиться
+    function initShareButtons() {
+        document.querySelectorAll('#share-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const url = window.location.href;
+                navigator.clipboard.writeText(url)
+                    .then(() => window.showNotification('🔗 Ссылка скопирована!', 'success'))
+                    .catch(() => window.showNotification('Ошибка при копировании ссылки', 'error'));
+            });
+        });
     }
 
     // Мобильное меню
@@ -127,25 +292,12 @@
             });
         }
 
-        // Mobile sidebar
         const sidebarToggle = document.querySelector('.mobile-sidebar-toggle');
         const sidebar = document.getElementById('sidebar');
 
         if (sidebarToggle && sidebar) {
             sidebarToggle.addEventListener('click', () => {
                 sidebar.classList.toggle('active');
-            });
-        }
-
-        // User menu for mobile
-        const userMenu = document.querySelector('.user-menu');
-        if (userMenu && window.innerWidth <= 768) {
-            userMenu.addEventListener('click', (e) => {
-                e.preventDefault();
-                const dropdown = userMenu.querySelector('.dropdown');
-                if (dropdown) {
-                    dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
-                }
             });
         }
 
@@ -170,7 +322,6 @@
         const isDark = saved === 'dark';
         document.body.classList.toggle('dark-theme', isDark);
 
-        // Синхронизация всех переключателей
         document.querySelectorAll('#guest-theme-toggle, .theme-toggle input[type="checkbox"]').forEach(toggle => {
             if (toggle.type === 'checkbox') {
                 toggle.checked = isDark;
@@ -281,28 +432,7 @@
         `;
     }
 
-    // Notification helper
-    window.showNotification = function(message, type = 'info') {
-        const colors = { success: '#5CB85C', error: '#D9534F', info: '#B380E6' };
-
-        const notification = document.createElement('div');
-        notification.className = `notification notification-${type}`;
-        notification.textContent = message;
-        notification.style.cssText = `
-            position: fixed; top: 20px; right: 20px; padding: 15px 20px;
-            background: ${colors[type] || colors.info}; color: white; border-radius: 8px;
-            z-index: 1000; animation: slideIn 0.3s ease; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        `;
-
-        document.body.appendChild(notification);
-
-        setTimeout(() => {
-            notification.style.animation = 'slideOut 0.3s ease';
-            setTimeout(() => notification.remove(), 300);
-        }, 3000);
-    };
-
-    // Add animation styles if not exists
+    // Добавляем стили для уведомлений если их нет
     if (!document.querySelector('#notification-styles')) {
         const style = document.createElement('style');
         style.id = 'notification-styles';

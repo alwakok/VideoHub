@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+
+{% block title %}Аккаунт заблокирован - VideoHUB{% endblock %}
+
+{% block content %}
+<div class="banned-page">
+    <div class="banned-container">
+        <div class="banned-icon">
+            <i class="fas fa-ban"></i>
+        </div>
+        
+        <h1>Аккаунт заблокирован</h1>
+        
+        <div class="ban-info">
+            <div class="info-item">
+                <i class="fas fa-user"></i>
+                <span>Пользователь: <strong>{{ current_user.username }}</strong></span>
+            </div>
+            
+            <div class="info-item">
+                <i class="fas fa-calendar-alt"></i>
+                <span>Дата блокировки: <strong>{{ ban.created_at.strftime('%d.%m.%Y %H:%M') if ban else 'Неизвестно' }}</strong></span>
+            </div>
+            
+            {% if ban and ban.duration_type == 'temporary' and ban.expires_at %}
+            <div class="info-item">
+                <i class="fas fa-hourglass-half"></i>
+                <span>Дата разблокировки: <strong>{{ ban.expires_at.strftime('%d.%m.%Y %H:%M') }}</strong></span>
+            </div>
+            {% else %}
+            <div class="info-item">
+                <i class="fas fa-infinity"></i>
+                <span>Тип блокировки: <strong>Навсегда</strong></span>
+            </div>
+            {% endif %}
+        </div>
+        
+        <div class="ban-reason">
+            <h3><i class="fas fa-exclamation-triangle"></i> Причина блокировки</h3>
+            <div class="reason-box">
+                {{ current_user.ban_reason or 'Причина не указана' }}
+            </div>
+        </div>
+        
+        <div class="ban-message">
+            <p>Ваш аккаунт был заблокирован за нарушение правил платформы.</p>
+            <p>Если вы считаете, что это ошибка, обратитесь в службу поддержки.</p>
+        </div>
+        
+        <div class="ban-actions">
+            <a href="mailto:support@videohub.ru?subject=Вопрос%20о%20блокировке%20аккаунта&body=Пользователь:%20{{ current_user.username }}%0D%0AПричина%20блокировки:%20{{ current_user.ban_reason }}" 
+               class="btn btn-primary btn-large">
+                <i class="fas fa-envelope"></i> Связаться с поддержкой
+            </a>
+            <a href="{{ url_for('logout') }}" class="btn btn-secondary">
+                <i class="fas fa-sign-out-alt"></i> Выйти
+            </a>
+        </div>
+        
+        <div class="ban-footer">
+            <p>© 2026 VideoHUB. Все права защищены.</p>
+        </div>
+    </div>
+</div>
+
+<style>
+.banned-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: linear-gradient(135deg, var(--bg) 0%, var(--card) 100%);
+}
+
+.banned-container {
+    max-width: 600px;
+    width: 100%;
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    padding: 40px;
+    text-align: center;
+    animation: slideUp 0.5s ease;
+}
+
+.banned-icon {
+    width: 100px;
+    height: 100px;
+    background: var(--error);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 30px;
+    animation: pulse 2s infinite;
+}
+
+.banned-icon i {
+    font-size: 48px;
+    color: white;
+}
+
+.banned-container h1 {
+    font-size: 32px;
+    color: var(--text-dark);
+    margin-bottom: 30px;
+}
+
+.ban-info {
+    background: var(--secondary);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 30px;
+    text-align: left;
+}
+
+.info-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.info-item:last-child {
+    border-bottom: none;
+}
+
+.info-item i {
+    width: 20px;
+    color: var(--primary);
+}
+
+.info-item strong {
+    color: var(--primary);
+}
+
+.ban-reason {
+    text-align: left;
+    margin-bottom: 30px;
+}
+
+.ban-reason h3 {
+    font-size: 20px;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-dark);
+}
+
+.ban-reason h3 i {
+    color: #ff9800;
+}
+
+.reason-box {
+    background: var(--secondary);
+    padding: 20px;
+    border-radius: var(--radius);
+    color: var(--text);
+    line-height: 1.6;
+    border-left: 4px solid var(--error);
+}
+
+.ban-message {
+    background: rgba(255, 193, 7, 0.1);
+    border: 1px solid #ffc107;
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 30px;
+}
+
+.ban-message p {
+    color: var(--text);
+    margin-bottom: 10px;
+}
+
+.ban-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-bottom: 30px;
+}
+
+.ban-actions .btn {
+    min-width: 200px;
+}
+
+.ban-footer {
+    color: var(--text-light);
+    font-size: 14px;
+    opacity: 0.7;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+@media (max-width: 768px) {
+    .banned-container {
+        padding: 25px;
+    }
+    
+    .banned-container h1 {
+        font-size: 24px;
+    }
+    
+    .ban-actions {
+        flex-direction: column;
+    }
+    
+    .ban-actions .btn {
+        width: 100%;
+    }
+}
+</style>
+{% endblock %}
