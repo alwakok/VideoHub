@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}VideoHUB - Вход{% endblock %}
+
+{% block content %}
+<div class="auth-page">
+    <div class="auth-container">
+        <div class="auth-header">
+            <h1><i class="fas fa-sign-in-alt"></i> Вход в аккаунт</h1>
+            <p>Войдите, чтобы загружать видео и взаимодействовать с контентом</p>
+        </div>
+
+        <form method="POST" class="auth-form">
+            <div class="form-group">
+                <label for="username">Имя пользователя</label>
+                <input type="text" id="username" name="username" required placeholder="Введите имя пользователя">
+                <i class="fas fa-user input-icon"></i>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Пароль</label>
+                <input type="password" id="password" name="password" required placeholder="Введите пароль">
+                <i class="fas fa-lock input-icon"></i>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block">
+                <i class="fas fa-sign-in-alt"></i> Войти
+            </button>
+
+            <div class="auth-footer">
+                <p>Нет аккаунта? <a href="{{ url_for('register') }}">Зарегистрироваться</a></p>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

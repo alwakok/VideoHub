@@ -1,0 +1,669 @@
+{% extends "base.html" %}
+
+{% block title %}Совместный просмотр - VideoHUB{% endblock %}
+
+{% block content %}
+<div class="watch-together-page">
+    <!-- Герой секция -->
+    <div class="watch-hero">
+        <div class="watch-hero-content">
+            <i class="fas fa-users hero-icon"></i>
+            <h1>Совместный просмотр</h1>
+            <p class="hero-subtitle">Смотрите видео вместе с друзьями в реальном времени</p>
+            <div class="hero-badges">
+                <span class="badge"><i class="fas fa-clock"></i> Скоро</span>
+                <span class="badge"><i class="fas fa-star"></i> Новая функция</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Информационные карточки -->
+    <div class="features-grid">
+        <div class="feature-card">
+            <div class="feature-icon-wrapper">
+                <i class="fas fa-video feature-icon"></i>
+            </div>
+            <h3>Синхронный просмотр</h3>
+            <p>Видео запускается одновременно у всех участников. Пауза, перемотка — всё синхронизируется.</p>
+        </div>
+
+        <div class="feature-card">
+            <div class="feature-icon-wrapper">
+                <i class="fas fa-comments feature-icon"></i>
+            </div>
+            <h3>Чат с друзьями</h3>
+            <p>Общайтесь в реальном времени, обсуждайте видео и делитесь эмоциями во время просмотра.</p>
+        </div>
+
+        <div class="feature-card">
+            <div class="feature-icon-wrapper">
+                <i class="fas fa-play-circle feature-icon"></i>
+            </div>
+            <h3>Создавайте комнаты</h3>
+            <p>Создавайте приватные комнаты для просмотра с друзьями или публичные для всех желающих.</p>
+        </div>
+    </div>
+
+    <!-- Демо-секция с комнатами -->
+    <div class="demo-section">
+        <div class="section-header">
+            <h2><i class="fas fa-door-open"></i> Примеры комнат</h2>
+            <p>Скоро вы сможете создавать свои комнаты для совместного просмотра</p>
+        </div>
+
+        <div class="rooms-grid">
+            <!-- Комната 1 -->
+            <div class="room-card">
+                <div class="room-preview">
+                    <img src="https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" alt="Room preview">
+                    <div class="room-status public">
+                        <i class="fas fa-globe"></i> Публичная
+                    </div>
+                    <div class="room-participants">
+                        <i class="fas fa-user"></i> 3/10
+                    </div>
+                </div>
+                <div class="room-info">
+                    <h4>Вечерний кинотеатр</h4>
+                    <div class="room-meta">
+                        <span><i class="fas fa-film"></i> Комедии</span>
+                        <span><i class="fas fa-clock"></i> 15 мин назад</span>
+                    </div>
+                    <div class="room-host">
+                        <img src="{{ url_for('uploaded_thumbnail', filename='default_avatar.png') }}" alt="Host" class="host-avatar">
+                        <span>Создатель: VideoHUB</span>
+                    </div>
+                    <div class="room-actions">
+                        <button class="btn btn-primary btn-block disabled" disabled>
+                            <i class="fas fa-hourglass-half"></i> Скоро будет доступно
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Комната 2 -->
+            <div class="room-card">
+                <div class="room-preview">
+                    <img src="https://images.unsplash.com/photo-1511512578047-dfb367046420?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" alt="Room preview">
+                    <div class="room-status private">
+                        <i class="fas fa-lock"></i> Приватная
+                    </div>
+                    <div class="room-participants">
+                        <i class="fas fa-user"></i> 2/5
+                    </div>
+                </div>
+                <div class="room-info">
+                    <h4>Игровой стрим</h4>
+                    <div class="room-meta">
+                        <span><i class="fas fa-gamepad"></i> Игры</span>
+                        <span><i class="fas fa-clock"></i> 5 мин назад</span>
+                    </div>
+                    <div class="room-host">
+                        <img src="{{ url_for('uploaded_thumbnail', filename='default_avatar.png') }}" alt="Host" class="host-avatar">
+                        <span>Создатель: VideoHUB</span>
+                    </div>
+                    <div class="room-actions">
+                        <button class="btn btn-primary btn-block disabled" disabled>
+                            <i class="fas fa-hourglass-half"></i> Скоро будет доступно
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Комната 3 -->
+            <div class="room-card">
+                <div class="room-preview">
+                    <img src="https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" alt="Room preview">
+                    <div class="room-status public">
+                        <i class="fas fa-globe"></i> Публичная
+                    </div>
+                    <div class="room-participants">
+                        <i class="fas fa-user"></i> 7/10
+                    </div>
+                </div>
+                <div class="room-info">
+                    <h4>Киноманы</h4>
+                    <div class="room-meta">
+                        <span><i class="fas fa-film"></i> Драмы</span>
+                        <span><i class="fas fa-clock"></i> 1 час назад</span>
+                    </div>
+                    <div class="room-host">
+                        <img src="{{ url_for('uploaded_thumbnail', filename='default_avatar.png') }}" alt="Host" class="host-avatar">
+                        <span>Создатель: VideoHUB</span>
+                    </div>
+                    <div class="room-actions">
+                        <button class="btn btn-primary btn-block disabled" disabled>
+                            <i class="fas fa-hourglass-half"></i> Скоро будет доступно
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Секция "Как это будет работать" -->
+    <div class="how-it-works">
+        <h2><i class="fas fa-cogs"></i> Как это будет работать</h2>
+
+        <div class="steps-container">
+            <div class="step-item">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <h3>Создайте комнату</h3>
+                    <p>Нажмите кнопку "Создать комнату", выберите видео и настройте параметры доступа</p>
+                </div>
+            </div>
+
+            <div class="step-item">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <h3>Пригласите друзей</h3>
+                    <p>Поделитесь ссылкой на комнату или отправьте приглашение через соцсети</p>
+                </div>
+            </div>
+
+            <div class="step-item">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <h3>Смотрите вместе</h3>
+                    <p>Видео будет синхронизировано для всех участников, общайтесь в чате</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Баннер о разработке -->
+    <div class="development-banner">
+        <div class="banner-content">
+            <i class="fas fa-tools banner-icon"></i>
+            <div class="banner-text">
+                <h3>Функция в разработке</h3>
+                <p>Мы активно работаем над этой функцией. Скоро вы сможете смотреть видео вместе с друзьями!</p>
+            </div>
+            <button class="btn btn-secondary btn-large" onclick="showNotification()">
+                <i class="fas fa-bell"></i> Уведомить о запуске
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Уведомление (модальное окно) -->
+<div class="notification-modal" id="notificationModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-bell"></i> Уведомление</h3>
+            <button class="close-modal" onclick="closeNotification()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>Спасибо за интерес к функции совместного просмотра!</p>
+            <p>Мы сообщим вам, когда она станет доступна.</p>
+            <div class="modal-actions">
+                <button class="btn btn-primary" onclick="closeNotification()">Понятно</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Стили для страницы совместного просмотра (временные, потом перенесем в CSS файлы) */
+.watch-together-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px 0;
+}
+
+/* Герой секция */
+.watch-hero {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 20px;
+    padding: 60px 40px;
+    margin-bottom: 50px;
+    text-align: center;
+    color: white;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+}
+
+.hero-icon {
+    font-size: 80px;
+    margin-bottom: 20px;
+    animation: pulse 2s infinite;
+}
+
+.watch-hero h1 {
+    font-size: 48px;
+    margin-bottom: 15px;
+    font-weight: 700;
+}
+
+.hero-subtitle {
+    font-size: 20px;
+    margin-bottom: 25px;
+    opacity: 0.95;
+}
+
+.hero-badges {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+}
+
+.hero-badges .badge {
+    background: rgba(255,255,255,0.2);
+    padding: 8px 20px;
+    border-radius: 30px;
+    font-size: 16px;
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Карточки функций */
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 30px;
+    margin-bottom: 60px;
+}
+
+.feature-card {
+    background: var(--card);
+    border-radius: 20px;
+    padding: 40px 30px;
+    text-align: center;
+    box-shadow: var(--shadow);
+    transition: transform 0.3s;
+}
+
+.feature-card:hover {
+    transform: translateY(-10px);
+}
+
+.feature-icon-wrapper {
+    width: 100px;
+    height: 100px;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 25px;
+}
+
+.feature-icon {
+    font-size: 40px;
+    color: white;
+}
+
+.feature-card h3 {
+    font-size: 22px;
+    margin-bottom: 15px;
+    color: var(--text-dark);
+}
+
+.feature-card p {
+    color: var(--text-light);
+    line-height: 1.6;
+}
+
+/* Секция с комнатами */
+.demo-section {
+    margin-bottom: 60px;
+}
+
+.section-header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.section-header h2 {
+    font-size: 32px;
+    color: var(--text-dark);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.section-header h2 i {
+    color: var(--primary);
+}
+
+.section-header p {
+    color: var(--text-light);
+    font-size: 18px;
+}
+
+.rooms-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 30px;
+}
+
+.room-card {
+    background: var(--card);
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    transition: all 0.3s;
+}
+
+.room-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+}
+
+.room-preview {
+    position: relative;
+    height: 200px;
+    overflow: hidden;
+}
+
+.room-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.room-status {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    padding: 6px 15px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    backdrop-filter: blur(5px);
+}
+
+.room-status.public {
+    background: rgba(76, 175, 80, 0.9);
+    color: white;
+}
+
+.room-status.private {
+    background: rgba(255, 152, 0, 0.9);
+    color: white;
+}
+
+.room-participants {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    backdrop-filter: blur(5px);
+}
+
+.room-info {
+    padding: 20px;
+}
+
+.room-info h4 {
+    font-size: 20px;
+    margin-bottom: 10px;
+    color: var(--text-dark);
+}
+
+.room-meta {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 15px;
+    font-size: 14px;
+    color: var(--text-light);
+}
+
+.room-meta i {
+    margin-right: 5px;
+    color: var(--primary);
+}
+
+.room-host {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding-top: 15px;
+    border-top: 1px solid var(--border);
+}
+
+.host-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.room-actions .btn.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* Секция "Как это работает" */
+.how-it-works {
+    background: var(--card);
+    border-radius: 20px;
+    padding: 50px;
+    margin-bottom: 60px;
+    box-shadow: var(--shadow);
+}
+
+.how-it-works h2 {
+    font-size: 32px;
+    color: var(--text-dark);
+    margin-bottom: 40px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.how-it-works h2 i {
+    color: var(--primary);
+}
+
+.steps-container {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+
+.step-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 25px;
+}
+
+.step-number {
+    width: 50px;
+    height: 50px;
+    background: var(--primary);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.step-content h3 {
+    font-size: 20px;
+    margin-bottom: 8px;
+    color: var(--text-dark);
+}
+
+.step-content p {
+    color: var(--text-light);
+    line-height: 1.6;
+}
+
+/* Баннер о разработке */
+.development-banner {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    border-radius: 15px;
+    padding: 30px;
+    color: white;
+    margin-bottom: 30px;
+}
+
+.banner-content {
+    display: flex;
+    align-items: center;
+    gap: 30px;
+    flex-wrap: wrap;
+}
+
+.banner-icon {
+    font-size: 60px;
+}
+
+.banner-text {
+    flex: 1;
+}
+
+.banner-text h3 {
+    font-size: 24px;
+    margin-bottom: 10px;
+}
+
+.banner-text p {
+    font-size: 16px;
+    opacity: 0.95;
+}
+
+.banner-content .btn-secondary {
+    background: white;
+    color: #f5576c;
+    border: none;
+}
+
+.banner-content .btn-secondary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+}
+
+/* Модальное окно */
+.notification-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.notification-modal.active {
+    display: flex;
+}
+
+.notification-modal .modal-content {
+    max-width: 400px;
+    animation: slideUp 0.3s ease;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 20px;
+}
+
+/* Анимации */
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .watch-hero {
+        padding: 40px 20px;
+    }
+
+    .watch-hero h1 {
+        font-size: 32px;
+    }
+
+    .hero-subtitle {
+        font-size: 18px;
+    }
+
+    .hero-badges {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .rooms-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .how-it-works {
+        padding: 30px 20px;
+    }
+
+    .step-item {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .banner-content {
+        flex-direction: column;
+        text-align: center;
+    }
+}
+
+/* Темная тема */
+body.dark-theme .feature-card,
+body.dark-theme .room-card,
+body.dark-theme .how-it-works {
+    background: var(--card);
+}
+
+body.dark-theme .room-status.public {
+    background: rgba(76, 175, 80, 0.8);
+}
+
+body.dark-theme .room-status.private {
+    background: rgba(255, 152, 0, 0.8);
+}
+</style>
+
+<script>
+function showNotification() {
+    document.getElementById('notificationModal').classList.add('active');
+}
+
+function closeNotification() {
+    document.getElementById('notificationModal').classList.remove('active');
+}
+
+// Закрытие модального окна при клике вне его
+window.onclick = function(event) {
+    const modal = document.getElementById('notificationModal');
+    if (event.target == modal) {
+        modal.classList.remove('active');
+    }
+}
+</script>
+{% endblock %}

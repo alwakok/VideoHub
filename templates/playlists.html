@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}VideoHUB - Плейлисты{% endblock %}
+
+{% block content %}
+<div class="playlists-page">
+    <div class="page-header">
+        <h1><i class="fas fa-list"></i> Мои плейлисты</h1>
+        <p>Создавайте и управляйте коллекциями видео</p>
+        {% if current_user.is_authenticated %}
+        <button class="btn btn-primary" id="create-playlist-btn">
+            <i class="fas fa-plus"></i> Создать плейлист
+        </button>
+        {% endif %}
+    </div>
+
+    {% if current_user.is_authenticated %}
+        {% if playlists %}
+        <div class="playlists-grid">
+            {% for playlist in playlists %}
+            <div class="playlist-card">
+                <a href="{{ url_for('playlist_detail', playlist_id=playlist.id) }}" class="playlist-thumbnail">
+                    {% if playlist.thumbnail and playlist.thumbnail != 'default-playlist.png' %}
+                    <img src="{{ url_for('uploaded_thumbnail', filename=playlist.thumbnail) }}" alt="{{ playlist.name }}">
+                    {% else %}
+                    <div class="playlist-thumbnail-placeholder">
+                        <i class="fas fa-list"></i>
+                    </div>
+                    {% endif %}
+                    <div class="playlist-video-count">{{ playlist.videos|length }} видео</div>
+                </a>
+                <div class="playlist-info">
+                    <h3 class="playlist-title">
+                        <a href="{{ url_for('playlist_detail', playlist_id=playlist.id) }}">{{ playlist.name }}</a>
+                    </h3>
+                    <p class="playlist-description">{{ playlist.description|truncate(100) }}</p>
+                    <div class="playlist-meta">
+                        <span class="playlist-date">Создан {{ playlist.created_at.strftime('%d.%m.%Y') }}</span>
+                        <span class="playlist-visibility">
+                            {% if playlist.is_public %}
+                            <i class="fas fa-globe"></i> Публичный
+                            {% else %}
+                            <i class="fas fa-lock"></i> Приватный
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-list fa-3x"></i>
+            <h3>У вас пока нет плейлистов</h3>
+            <p>Создайте первый плейлист, чтобы организовать свои видео</p>
+            <button class="btn btn-primary" id="create-first-playlist">
+                <i class="fas fa-plus"></i> Создать плейлист
+            </button>
+        </div>
+        {% endif %}
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-list fa-3x"></i>
+        <h3>Войдите для доступа к плейлистам</h3>
+        <p>Авторизуйтесь, чтобы создавать и управлять плейлистами</p>
+        <a href="{{ url_for('login') }}" class="btn btn-primary">
+            <i class="fas fa-sign-in-alt"></i> Войти
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Модальное окно создания плейлиста -->
+    {% if current_user.is_authenticated %}
+    <div class="modal" id="create-playlist-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-plus"></i> Создать плейлист</h3>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="create-playlist-form">
+                    <div class="form-group">
+                        <label for="playlist-name">Название плейлиста *</label>
+                        <input type="text" id="playlist-name" name="name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="playlist-description">Описание</label>
+                        <textarea id="playlist-description" name="description" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="is_public" checked>
+                            <span>Публичный плейлист</span>
+                        </label>
+                        <p class="help-text">Публичные плейлисты видны другим пользователям</p>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Создать</button>
+                        <button type="button" class="btn btn-secondary close-modal">Отмена</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% if current_user.is_authenticated %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('create-playlist-modal');
+    const openBtns = document.querySelectorAll('#create-playlist-btn, #create-first-playlist');
+    const closeBtns = document.querySelectorAll('.close-modal');
+    const form = document.getElementById('create-playlist-form');
+
+    // Открытие модального окна
+    openBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            modal.style.display = 'block';
+        });
+    });
+
+    // Закрытие модального окна
+    closeBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
+    });
+
+    // Закрытие при клике вне модального окна
+    window.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.style.display = 'none';
+        }
+    });
+
+    // Отправка формы
+    if (form) {
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            const formData = new FormData(form);
+
+            fetch('/playlist/create', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert(data.error || 'Ошибка при создании плейлиста');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Ошибка сети');
+            });
+        });
+    }
+});
+</script>
+{% endif %}
+{% endblock %}
