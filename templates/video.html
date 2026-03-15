@@ -482,8 +482,25 @@ body.dark-theme .playlist-item:hover {
         // ===== ИЗБРАННОЕ =====
         const favoriteBtn = document.getElementById('favorite-btn');
         if (favoriteBtn) {
+            // Проверяем статус при загрузке
+            const videoId = favoriteBtn.dataset.videoId;
+
+            fetch(`/api/check-favorite/${videoId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.is_favorite) {
+                        favoriteBtn.classList.add('liked');
+                        favoriteBtn.innerHTML = '<i class="fas fa-star"></i> <span>В избранном</span>';
+                    }
+                })
+                .catch(error => console.error('Ошибка проверки избранного:', error));
+
             favoriteBtn.addEventListener('click', function() {
-                const videoId = this.getAttribute('data-video-id');
+                const videoId = this.dataset.videoId;
+                const originalText = this.innerHTML;
+
+                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Обработка...</span>';
+                this.disabled = true;
 
                 fetch(`/favorite/${videoId}`, {
                     method: 'POST',
@@ -492,19 +509,58 @@ body.dark-theme .playlist-item:hover {
                 .then(response => response.json())
                 .then(data => {
                     if (data.favorited) {
-                        this.innerHTML = '<i class="fas fa-star"></i> <span>В избранном</span>';
                         this.classList.add('liked');
-                        window.showNotification('⭐ Добавлено в избранное', 'success');
+                        this.innerHTML = '<i class="fas fa-star"></i> <span>В избранном</span>';
+                        window.showNotification('⭐ Видео добавлено в избранное', 'success');
+
+                        // Обновляем счетчик в сайдбаре
+                        updateFavoriteBadge(data.favorites_count);
                     } else {
-                        this.innerHTML = '<i class="fas fa-star"></i> <span>В избранное</span>';
                         this.classList.remove('liked');
-                        window.showNotification('Удалено из избранного', 'info');
+                        this.innerHTML = '<i class="fas fa-star"></i> <span>В избранное</span>';
+                        window.showNotification('Видео удалено из избранного', 'info');
+
+                        // Обновляем счетчик в сайдбаре
+                        updateFavoriteBadge(data.favorites_count);
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
                     window.showNotification('Ошибка при добавлении в избранное', 'error');
+                    this.innerHTML = originalText;
+                })
+                .finally(() => {
+                    this.disabled = false;
                 });
+            });
+        }
+
+        // Функция для обновления счетчика избранного в сайдбаре
+        function updateFavoriteBadge(count) {
+            // Ищем ссылку на избранное в сайдбаре
+            const favoriteLinks = document.querySelectorAll('.sidebar-menu a[href*="playlist"][href*="Избранное"], .sidebar-menu a[href*="favorites"]');
+
+            favoriteLinks.forEach(link => {
+                // Ищем существующий badge
+                let badge = link.querySelector('.badge');
+
+                if (count > 0) {
+                    if (badge) {
+                        // Обновляем существующий
+                        badge.textContent = count;
+                    } else {
+                        // Создаем новый
+                        badge = document.createElement('span');
+                        badge.className = 'badge';
+                        badge.textContent = count;
+                        link.appendChild(badge);
+                    }
+                } else {
+                    // Если счетчик 0, удаляем badge
+                    if (badge) {
+                        badge.remove();
+                    }
+                }
             });
         }
 

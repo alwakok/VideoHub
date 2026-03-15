@@ -16,7 +16,8 @@
         initSubscribeButtons();
         initShareButtons();
         initFavoriteButtons();
-        initSidebarScroll(); // Добавьте эту строку
+        initSidebarScroll();
+        initActiveFooterLinks(); // Добавьте эту строку
     }
 
     // Функция для показа уведомлений
@@ -457,50 +458,101 @@
         `;
     }
 
-    // Добавляем новую функцию для обработки скролла sidebar
+    // Функция для обработки скролла sidebar
     function initSidebarScroll() {
-        const sidebar = document.getElementById('sidebar');
-        if (!sidebar) return;
+    const sidebar = document.getElementById('sidebar');
+    if (!sidebar) return;
 
-        // Предотвращаем всплытие события прокрутки
-        sidebar.addEventListener('wheel', function(e) {
-            const { scrollTop, scrollHeight, clientHeight } = this;
+    // Восстанавливаем позицию при загрузке
+    const savedScrollTop = sessionStorage.getItem('sidebarScrollPosition');
+    if (savedScrollTop) {
+        sidebar.scrollTop = parseInt(savedScrollTop);
+    }
 
-            // Если дошли до верха и пытаемся скроллить вверх
-            if (scrollTop === 0 && e.deltaY < 0) {
-                e.preventDefault();
+    // Сохраняем позицию при скролле
+    let scrollTimeout;
+    sidebar.addEventListener('scroll', function() {
+        clearTimeout(scrollTimeout);
+        scrollTimeout = setTimeout(function() {
+            sessionStorage.setItem('sidebarScrollPosition', sidebar.scrollTop);
+        }, 100);
+    });
+
+    // Сохраняем позицию перед уходом со страницы
+    window.addEventListener('beforeunload', function() {
+        sessionStorage.setItem('sidebarScrollPosition', sidebar.scrollTop);
+    });
+
+    // Предотвращаем всплытие события прокрутки
+    sidebar.addEventListener('wheel', function(e) {
+        const { scrollTop, scrollHeight, clientHeight } = this;
+
+        // Если дошли до верха и пытаемся скроллить вверх
+        if (scrollTop === 0 && e.deltaY < 0) {
+            e.preventDefault();
+        }
+
+        // Если дошли до низа и пытаемся скроллить вниз
+        if (scrollTop + clientHeight >= scrollHeight && e.deltaY > 0) {
+            e.preventDefault();
+        }
+
+        // Останавливаем всплытие события
+        e.stopPropagation();
+    }, { passive: false });
+
+    // Также обрабатываем touch-события для мобильных
+    sidebar.addEventListener('touchstart', function(e) {
+        this._touchStartY = e.touches[0].clientY;
+        this._touchStartScrollTop = this.scrollTop;
+    });
+
+    sidebar.addEventListener('touchmove', function(e) {
+        const { scrollTop, scrollHeight, clientHeight } = this;
+        const touchY = e.touches[0].clientY;
+        const deltaY = touchY - (this._touchStartY || touchY);
+
+        // Если дошли до верха и пытаемся скроллить вниз
+        if (scrollTop === 0 && deltaY > 0) {
+            e.preventDefault();
+        }
+
+        // Если дошли до низа и пытаемся скроллить вверх
+        if (scrollTop + clientHeight >= scrollHeight && deltaY < 0) {
+            e.preventDefault();
+        }
+    }, { passive: false });
+}
+
+    // Новая функция для подсветки активных ссылок в футере
+    function initActiveFooterLinks() {
+        // Получаем текущий URL и endpoint
+        const currentPath = window.location.pathname;
+
+        // Словарь соответствия URL и эндпоинтов
+        const endpointMap = {
+            '/about': 'about_project',
+            '/legal': 'legal_info',
+            '/support': 'support'
+        };
+
+        // Для каждой ссылки в футере проверяем, соответствует ли она текущему пути
+        document.querySelectorAll('.sidebar-footer-menu-bold a').forEach(link => {
+            const href = link.getAttribute('href');
+
+            // Проверяем прямое соответствие
+            if (href === currentPath) {
+                link.classList.add('active');
             }
 
-            // Если дошли до низа и пытаемся скроллить вниз
-            if (scrollTop + clientHeight >= scrollHeight && e.deltaY > 0) {
-                e.preventDefault();
+            // Также проверяем по эндпоинтам (на случай если есть дополнительные параметры в URL)
+            for (const [path, endpoint] of Object.entries(endpointMap)) {
+                if (currentPath.includes(path) && href.includes(path)) {
+                    link.classList.add('active');
+                    break;
+                }
             }
-
-            // Останавливаем всплытие события
-            e.stopPropagation();
-        }, { passive: false });
-
-        // Также обрабатываем touch-события для мобильных
-        sidebar.addEventListener('touchstart', function(e) {
-            this._touchStartY = e.touches[0].clientY;
-            this._touchStartScrollTop = this.scrollTop;
         });
-
-        sidebar.addEventListener('touchmove', function(e) {
-            const { scrollTop, scrollHeight, clientHeight } = this;
-            const touchY = e.touches[0].clientY;
-            const deltaY = touchY - (this._touchStartY || touchY);
-
-            // Если дошли до верха и пытаемся скроллить вниз
-            if (scrollTop === 0 && deltaY > 0) {
-                e.preventDefault();
-            }
-
-            // Если дошли до низа и пытаемся скроллить вверх
-            if (scrollTop + clientHeight >= scrollHeight && deltaY < 0) {
-                e.preventDefault();
-            }
-        }, { passive: false });
     }
 
     // Добавляем стили для уведомлений если их нет

@@ -837,3 +837,142 @@ body.dark-theme .sidebar-footer-copyright {
         padding: 6px 8px;
     }
 }
+
+/* ========== ОБНОВЛЕННЫЙ СТИЛЬ ДЛЯ ФУТЕРА В САЙДБАРЕ ========== */
+.sidebar-footer {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+}
+
+.sidebar-footer-header {
+    margin-bottom: 20px;
+    padding-left: 10px;
+}
+
+.sidebar-footer-main-title {
+    font-size: 16px;
+    font-weight: 800;  /* Жирнее некуда */
+    color: #808080;  /* Серый цвет */
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    position: relative;
+    display: inline-block;
+    padding-bottom: 8px;
+}
+
+.sidebar-footer-main-title::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 40px;
+    height: 3px;
+    background: #808080;  /* Серый цвет */
+    border-radius: 2px;
+    opacity: 0.5;
+}
+
+.sidebar-footer-section {
+    margin-bottom: 20px;
+}
+
+.sidebar-footer-menu {
+    list-style: none;
+}
+
+.sidebar-footer-menu li {
+    margin-bottom: 8px;
+}
+
+/* Жирное меню для трех основных ссылок */
+.sidebar-footer-menu-bold a {
+    font-weight: 700;  /* Жирный */
+    font-size: 14px;   /* Чуть больше размер */
+    color: var(--text-dark);
+    padding: 8px 10px;
+    border-radius: var(--radius);
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+}
+
+.sidebar-footer-menu-bold a i {
+    width: 20px;
+    font-size: 16px;
+    color: var(--primary);
+    transition: all 0.3s;
+}
+
+/* Стиль для наведения - как в sidebar */
+.sidebar-footer-menu-bold a:hover {
+    background: var(--secondary);
+    color: var(--text-dark);
+    transform: translateX(5px);
+}
+
+.sidebar-footer-menu-bold a:hover i {
+    color: var(--primary-dark);
+}
+
+/* Стиль для активной ссылки - как в sidebar */
+.sidebar-footer-menu-bold a.active {
+    background: var(--primary);
+    color: white;
+    transform: translateX(5px);
+}
+
+.sidebar-footer-menu-bold a.active i {
+    color: white;
+}
+
+/* Для темной темы */
+body.dark-theme .sidebar-footer-main-title {
+    color: #808080;  /* Серый цвет сохраняется в темной теме */
+}
+
+body.dark-theme .sidebar-footer-main-title::after {
+    background: #808080;  /* Серый цвет */
+    opacity: 0.5;
+}
+
+body.dark-theme .sidebar-footer-menu-bold a {
+    color: var(--text-dark);
+}
+
+body.dark-theme .sidebar-footer-menu-bold a:hover {
+    background: var(--hover);
+    color: var(--text-dark);
+}
+
+body.dark-theme .sidebar-footer-menu-bold a.active {
+    background: var(--primary);
+    color: white;
+}
+
+/* Анимация при наведении */
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.sidebar-footer-main-title {
+    animation: pulse 2s infinite;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .sidebar-footer-main-title {
+        font-size: 14px;
+    }
+
+    .sidebar-footer-menu-bold a {
+        font-size: 13px;
+        padding: 6px 8px;
+    }
+}
+

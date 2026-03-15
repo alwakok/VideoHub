@@ -268,86 +268,87 @@
             </div>
 
             <!-- Вы -->
-            <div class="sidebar-section">
-                <h3 class="sidebar-title">Вы</h3>
-                <ul class="sidebar-menu">
-                    {% if current_user.is_authenticated %}
-                        <li>
-                            <a href="{{ url_for('watch_history') }}" class="sidebar-link {% if request.endpoint == 'watch_history' %}active{% endif %}">
-                                <i class="fas fa-history"></i>
-                                <span>История</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ url_for('playlists') }}" class="sidebar-link {% if request.endpoint == 'playlists' %}active{% endif %}">
-                                <i class="fas fa-list"></i>
-                                <span>Плейлисты</span>
-                                {% if current_user.playlists %}
-                                <span class="badge">{{ current_user.playlists|length }}</span>
+
+                <div class="sidebar-section">
+                    <h3 class="sidebar-title">Вы</h3>
+                    <ul class="sidebar-menu">
+                        {% if current_user.is_authenticated %}
+                            <li>
+                                <a href="{{ url_for('watch_history') }}" class="sidebar-link {% if request.endpoint == 'watch_history' %}active{% endif %}">
+                                    <i class="fas fa-history"></i>
+                                    <span>История</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ url_for('playlists') }}" class="sidebar-link {% if request.endpoint == 'playlists' %}active{% endif %}">
+                                    <i class="fas fa-list"></i>
+                                    <span>Плейлисты</span>
+                                    {% if current_user.playlists %}
+                                    <span class="badge">{{ current_user.playlists|length }}</span>
+                                    {% endif %}
+                                </a>
+                            </li>
+                            <li>
+                                {% set favorite_playlist = current_user.playlists|selectattr('name', 'equalto', 'Избранное')|first %}
+                                {% if favorite_playlist %}
+                                <a href="{{ url_for('playlist_detail', playlist_id=favorite_playlist.id) }}"
+                                   class="sidebar-link {% if request.endpoint == 'playlist_detail' and playlist and playlist.name == 'Избранное' %}active{% endif %}">
+                                    <i class="fas fa-star"></i>
+                                    <span>Избранное</span>
+                                    {% if favorite_playlist.videos|length > 0 %}
+                                    <span class="badge">{{ favorite_playlist.videos|length }}</span>
+                                    {% endif %}
+                                </a>
+                                {% else %}
+                                <a href="{{ url_for('favorites') }}"
+                                   class="sidebar-link {% if request.endpoint == 'favorites' %}active{% endif %}">
+                                    <i class="fas fa-star"></i>
+                                    <span>Избранное</span>
+                                </a>
                                 {% endif %}
-                            </a>
-                        </li>
-                        <li>
-                            {% set favorite_playlist = current_user.playlists|selectattr('name', 'equalto', 'Избранное')|first %}
-                            {% if favorite_playlist %}
-                            <a href="{{ url_for('playlist_detail', playlist_id=favorite_playlist.id) }}"
-                               class="sidebar-link {% if request.endpoint == 'playlist_detail' and playlist and playlist.name == 'Избранное' %}active{% endif %}">
-                                <i class="fas fa-star"></i>
-                                <span>Избранное</span>
-                                {% if current_user.favorites %}
-                                <span class="badge">{{ current_user.favorites|length }}</span>
-                                {% endif %}
-                            </a>
-                            {% else %}
-                            <a href="{{ url_for('favorites') }}"
-                               class="sidebar-link {% if request.endpoint == 'favorites' %}active{% endif %}">
-                                <i class="fas fa-star"></i>
-                                <span>Избранное</span>
-                                {% if current_user.favorites %}
-                                <span class="badge">{{ current_user.favorites|length }}</span>
-                                {% endif %}
-                            </a>
-                            {% endif %}
-                        </li>
-                        <li>
-                            <a href="{{ url_for('subscriptions') }}" class="sidebar-link {% if request.endpoint == 'subscriptions' %}active{% endif %}">
-                                <i class="fas fa-user-friends"></i>
-                                <span>Подписки</span>
-                            </a>
-                        </li>
-                    {% else %}
-                        {% for item in [('history', 'История', 'watch_history'), ('list', 'Плейлисты', 'playlists'), ('star', 'Избранное', 'favorites'), ('user-friends', 'Подписки', 'subscriptions')] %}
-                        <li>
-                            <a href="{{ url_for('login') }}" class="sidebar-link">
-                                <i class="fas fa-{{ item[0] }}"></i>
-                                <span>{{ item[1] }}</span>
-                            </a>
-                        </li>
-                        {% endfor %}
-                    {% endif %}
-                </ul>
-            </div>
+                            </li>
+                            <li>
+                                <a href="{{ url_for('subscriptions') }}" class="sidebar-link {% if request.endpoint == 'subscriptions' %}active{% endif %}">
+                                    <i class="fas fa-user-friends"></i>
+                                    <span>Подписки</span>
+                                </a>
+                            </li>
+                        {% else %}
+                            {% for item in [('history', 'История', 'watch_history'), ('list', 'Плейлисты', 'playlists'), ('star', 'Избранное', 'favorites'), ('user-friends', 'Подписки', 'subscriptions')] %}
+                            <li>
+                                <a href="{{ url_for('login') }}" class="sidebar-link">
+                                    <i class="fas fa-{{ item[0] }}"></i>
+                                    <span>{{ item[1] }}</span>
+                                </a>
+                            </li>
+                            {% endfor %}
+                        {% endif %}
+                    </ul>
+                </div>
 
             <!-- Ваши плейлисты -->
             {% if current_user.is_authenticated and current_user.playlists %}
-            <div class="sidebar-section">
+            <div class="sidebar-section" id="playlists-section">
                 <h3 class="sidebar-title">Ваши плейлисты</h3>
-                <ul class="sidebar-menu">
+                <ul class="sidebar-menu" id="playlists-menu">
                     {% for playlist in current_user.playlists[:5] %}
                     <li>
                         <a href="{{ url_for('playlist_detail', playlist_id=playlist.id) }}"
-                           class="sidebar-link {% if request.endpoint == 'playlist_detail' and playlist.id == playlist.id %}active{% endif %}">
-                            <i class="fas fa-music"></i>
+                           class="sidebar-link {% if request.endpoint == 'playlist_detail' and request.view_args.get('playlist_id')|int == playlist.id %}active{% endif %}">
+                            <i class="fas fa-play"></i>
                             <span>{{ playlist.name }}</span>
+                            {% if playlist.videos|length > 0 %}
                             <span class="badge">{{ playlist.videos|length }}</span>
+                            {% endif %}
                         </a>
                     </li>
                     {% endfor %}
+
                     {% if current_user.playlists|length > 5 %}
-                    <li>
-                        <a href="{{ url_for('playlists') }}" class="sidebar-link {% if request.endpoint == 'playlists' %}active{% endif %}">
+                    <li class="show-more-container" id="show-more-container">
+                        <a href="#" class="sidebar-link" id="show-more-playlists">
                             <i class="fas fa-ellipsis-h"></i>
-                            <span>Показать все</span>
+                            <span>Показать больше</span>
                         </a>
                     </li>
                     {% endif %}
@@ -357,7 +358,7 @@
 
             <!-- Футер в сайдбаре -->
             <div class="sidebar-footer">
-                <!-- Заголовок О VIDEOHUB (жирный) -->
+                <!-- Заголовок О VIDEOHUB (жирный, серого цвета) -->
                 <div class="sidebar-footer-header">
                     <span class="sidebar-footer-main-title">О VIDEOHUB</span>
                 </div>
@@ -365,9 +366,24 @@
                 <!-- Три основные ссылки (жирные) -->
                 <div class="sidebar-footer-section">
                     <ul class="sidebar-footer-menu sidebar-footer-menu-bold">
-                        <li><a href="{{ url_for('about_project') }}"><i class="fas fa-info-circle"></i> О проекте</a></li>
-                        <li><a href="{{ url_for('legal_info') }}"><i class="fas fa-gavel"></i> Юридическая информация</a></li>
-                        <li><a href="{{ url_for('support') }}"><i class="fas fa-headset"></i> Поддержка и сотрудничество</a></li>
+                        <li>
+                            <a href="{{ url_for('about_project') }}"
+                               class="sidebar-footer-link {% if request.endpoint == 'about_project' %}active{% endif %}">
+                                <i class="fas fa-info-circle"></i> О проекте
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('legal_info') }}"
+                               class="sidebar-footer-link {% if request.endpoint == 'legal_info' %}active{% endif %}">
+                                <i class="fas fa-gavel"></i> Юридическая информация
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('support') }}"
+                               class="sidebar-footer-link {% if request.endpoint == 'support' %}active{% endif %}">
+                                <i class="fas fa-headset"></i> Поддержка и сотрудничество
+                            </a>
+                        </li>
                     </ul>
                 </div>
 
@@ -397,6 +413,228 @@
             {% block content %}{% endblock %}
         </div>
     </main>
+
+    <!-- Сохранение позиции скролла сайдбара и состояния плейлистов -->
+    <script>
+    (function() {
+        // НОВАЯ СТРОКА: Определяем, было ли обновление страницы (F5)
+        const isReload = performance.getEntriesByType('navigation')[0]?.type === 'reload';
+
+        // НОВЫЙ БЛОК: Если это F5 - очищаем сохраненное состояние
+        if (isReload) {
+            sessionStorage.removeItem('visiblePlaylists');
+            sessionStorage.removeItem('showMoreExists');
+            sessionStorage.removeItem('sidebarScrollPosition');
+        }
+
+        // Сохраняем позицию скролла перед уходом со страницы
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar) {
+            // НОВАЯ СТРОКА: Восстанавливаем позицию при загрузке (только если не было F5)
+            const savedScrollTop = sessionStorage.getItem('sidebarScrollPosition');
+            if (savedScrollTop && !isReload) {
+                sidebar.scrollTop = parseInt(savedScrollTop);
+            }
+
+            // Сохраняем позицию перед уходом со страницы
+            window.addEventListener('beforeunload', function() {
+                sessionStorage.setItem('sidebarScrollPosition', sidebar.scrollTop);
+            });
+
+            // Также сохраняем при скролле (на всякий случай)
+            let scrollTimeout;
+            sidebar.addEventListener('scroll', function() {
+                clearTimeout(scrollTimeout);
+                scrollTimeout = setTimeout(function() {
+                    sessionStorage.setItem('sidebarScrollPosition', sidebar.scrollTop);
+                }, 100);
+            });
+        }
+
+        // Для ссылок в сайдбаре - добавляем плавный переход с сохранением позиции
+        document.querySelectorAll('.sidebar a, .sidebar-footer a').forEach(link => {
+            link.addEventListener('click', function(e) {
+                // Сохраняем позицию перед переходом
+                if (sidebar) {
+                    sessionStorage.setItem('sidebarScrollPosition', sidebar.scrollTop);
+                }
+
+                // Сохраняем состояние развернутых плейлистов
+                const showMoreContainer = document.getElementById('show-more-container');
+                if (showMoreContainer) {
+                    // Сохраняем, что кнопка еще есть (не все плейлисты показаны)
+                    sessionStorage.setItem('showMoreExists', 'true');
+                }
+
+                // Сохраняем количество показанных плейлистов
+                const playlistItems = document.querySelectorAll('#playlists-menu > li:not(.show-more-container)');
+                sessionStorage.setItem('visiblePlaylists', playlistItems.length.toString());
+            });
+        });
+    })();
+    </script>
+
+    <!-- Скрипт для показа больше плейлистов (по 5 за раз) с сохранением состояния -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Данные всех плейлистов
+        const allPlaylists = [
+            {% for playlist in current_user.playlists %}
+            {
+                id: {{ playlist.id }},
+                name: "{{ playlist.name|replace('"', '\\"')|safe }}",
+                videos_count: {{ playlist.videos|length }}
+            }{% if not loop.last %},{% endif %}
+            {% endfor %}
+        ];
+
+        const totalPlaylists = allPlaylists.length;
+        const playlistsMenu = document.getElementById('playlists-menu');
+        const showMoreBtn = document.getElementById('show-more-playlists');
+
+        // НОВАЯ СТРОКА: Определяем, было ли обновление страницы
+        const isReload = performance.getEntriesByType('navigation')[0]?.type === 'reload';
+
+        // Функция для восстановления состояния плейлистов
+        function restorePlaylistsState() {
+            // НОВАЯ СТРОКА: Если было обновление страницы, не восстанавливаем состояние
+            if (isReload) return;
+
+            const savedVisibleCount = sessionStorage.getItem('visiblePlaylists');
+            const showMoreExists = sessionStorage.getItem('showMoreExists') === 'true';
+
+            if (savedVisibleCount && parseInt(savedVisibleCount) > 5) {
+                const visibleCount = parseInt(savedVisibleCount);
+                const currentPlaylistId = {% if request.endpoint == 'playlist_detail' %}{{ request.view_args.get('playlist_id', 0) }}{% else %}0{% endif %};
+
+                // Удаляем все кроме первых 5 (они уже есть в HTML)
+                const itemsToRemove = [];
+                playlistsMenu.querySelectorAll('li:not(.show-more-container)').forEach((item, index) => {
+                    if (index >= 5) {
+                        itemsToRemove.push(item);
+                    }
+                });
+
+                itemsToRemove.forEach(item => item.remove());
+
+                // Добавляем сохраненное количество плейлистов
+                let addedCount = 5;
+                while (addedCount < visibleCount && addedCount < totalPlaylists) {
+                    const nextBatch = allPlaylists.slice(addedCount, Math.min(addedCount + 5, visibleCount));
+
+                    nextBatch.forEach(playlist => {
+                        const li = document.createElement('li');
+                        const activeClass = (playlist.id === currentPlaylistId) ? 'active' : '';
+
+                        // Показываем бейдж только если есть видео
+                        const badgeHtml = playlist.videos_count > 0 ? `<span class="badge">${playlist.videos_count}</span>` : '';
+
+                        li.innerHTML = `
+                            <a href="/playlist/${playlist.id}"
+                               class="sidebar-link ${activeClass}">
+                                <i class="fas fa-play"></i>
+                                <span>${playlist.name}</span>
+                                ${badgeHtml}
+                            </a>
+                        `;
+
+                        if (showMoreBtn) {
+                            playlistsMenu.insertBefore(li, showMoreBtn.closest('li'));
+                        } else {
+                            playlistsMenu.appendChild(li);
+                        }
+                    });
+
+                    addedCount += nextBatch.length;
+                }
+
+                // Проверяем, нужно ли показывать кнопку
+                const showMoreContainer = document.getElementById('show-more-container');
+                if (visibleCount >= totalPlaylists) {
+                    if (showMoreContainer) {
+                        showMoreContainer.remove();
+                    }
+                } else if (!showMoreContainer && showMoreExists) {
+                    // Восстанавливаем кнопку если нужно
+                    const li = document.createElement('li');
+                    li.className = 'show-more-container';
+                    li.id = 'show-more-container';
+                    li.innerHTML = `
+                        <a href="#" class="sidebar-link" id="show-more-playlists">
+                            <i class="fas fa-ellipsis-h"></i>
+                            <span>Показать больше</span>
+                        </a>
+                    `;
+                    playlistsMenu.appendChild(li);
+
+                    // Переинициализируем обработчик для новой кнопки
+                    initShowMoreHandler();
+                }
+            }
+        }
+
+        // Функция для инициализации обработчика кнопки
+        function initShowMoreHandler() {
+            const newShowMoreBtn = document.getElementById('show-more-playlists');
+            if (!newShowMoreBtn) return;
+
+            newShowMoreBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+
+                // Текущее количество видимых плейлистов (без учета кнопки)
+                const visibleItems = document.querySelectorAll('#playlists-menu > li:not(.show-more-container)');
+                const currentVisible = visibleItems.length;
+
+                // Показываем следующие 5 плейлистов
+                const nextPlaylists = allPlaylists.slice(currentVisible, currentVisible + 5);
+
+                if (nextPlaylists.length > 0) {
+                    // Получаем ID текущего активного плейлиста
+                    const currentPlaylistId = {% if request.endpoint == 'playlist_detail' %}{{ request.view_args.get('playlist_id', 0) }}{% else %}0{% endif %};
+
+                    // Добавляем новые плейлисты перед кнопкой
+                    nextPlaylists.forEach(playlist => {
+                        const li = document.createElement('li');
+                        const activeClass = (playlist.id === currentPlaylistId) ? 'active' : '';
+
+                        // Показываем бейдж только если есть видео
+                        const badgeHtml = playlist.videos_count > 0 ? `<span class="badge">${playlist.videos_count}</span>` : '';
+
+                        li.innerHTML = `
+                            <a href="/playlist/${playlist.id}"
+                               class="sidebar-link ${activeClass}">
+                                <i class="fas fa-play"></i>
+                                <span>${playlist.name}</span>
+                                ${badgeHtml}
+                            </a>
+                        `;
+
+                        playlistsMenu.insertBefore(li, newShowMoreBtn.closest('li'));
+                    });
+
+                    const newVisibleCount = currentVisible + nextPlaylists.length;
+
+                    // Сохраняем новое состояние
+                    sessionStorage.setItem('visiblePlaylists', newVisibleCount.toString());
+
+                    // Если показали все плейлисты, удаляем кнопку
+                    if (newVisibleCount >= totalPlaylists) {
+                        newShowMoreBtn.closest('li').remove();
+                        sessionStorage.removeItem('showMoreExists');
+                    } else {
+                        sessionStorage.setItem('showMoreExists', 'true');
+                    }
+                }
+            });
+        }
+
+        // Восстанавливаем состояние при загрузке
+        restorePlaylistsState();
+
+        // Инициализируем обработчик для существующей кнопки
+        initShowMoreHandler();
+    });
+    </script>
 
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
     {% block scripts %}{% endblock %}

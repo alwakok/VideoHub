@@ -806,29 +806,97 @@ def update_theme():
 @app.route('/favorites')
 @login_required
 def favorites():
-    favorites = Favorite.query.filter_by(user_id=current_user.id).order_by(Favorite.created_at.desc()).all()
-    return render_template('favorites.html', videos=[fav.video for fav in favorites])
+    # Находим плейлист "Избранное"
+    favorite_playlist = Playlist.query.filter_by(
+        user_id=current_user.id,
+        name="Избранное"
+    ).first()
+
+    if favorite_playlist:
+        videos = [pv.video for pv in favorite_playlist.videos]
+    else:
+        videos = []
+
+    return render_template('favorites.html', videos=videos)
 
 
 @app.route('/favorite/<int:video_id>', methods=['POST'])
 @login_required
 def toggle_favorite(video_id):
-    Video.query.get_or_404(video_id)
-    existing = Favorite.query.filter_by(user_id=current_user.id, video_id=video_id).first()
+    """Добавляет или удаляет видео из плейлиста Избранное"""
+    video = Video.query.get_or_404(video_id)
+
+    # Находим или создаем плейлист "Избранное"
+    favorite_playlist = Playlist.query.filter_by(
+        user_id=current_user.id,
+        name="Избранное"
+    ).first()
+
+    if not favorite_playlist:
+        favorite_playlist = Playlist(
+            user_id=current_user.id,
+            name="Избранное",
+            description="Мои любимые видео",
+            is_public=False
+        )
+        db.session.add(favorite_playlist)
+        db.session.commit()
+
+    # Проверяем, есть ли видео в избранном
+    existing = PlaylistVideo.query.filter_by(
+        playlist_id=favorite_playlist.id,
+        video_id=video_id
+    ).first()
 
     if existing:
+        # Удаляем из избранного
         db.session.delete(existing)
         favorited = False
+        message = 'Видео удалено из избранного'
     else:
-        db.session.add(Favorite(user_id=current_user.id, video_id=video_id))
+        # Добавляем в избранное
+        playlist_video = PlaylistVideo(
+            playlist_id=favorite_playlist.id,
+            video_id=video_id
+        )
+        db.session.add(playlist_video)
         favorited = True
+        message = 'Видео добавлено в избранное'
 
     db.session.commit()
 
+    # Получаем обновленное количество видео в избранном
+    favorites_count = PlaylistVideo.query.filter_by(
+        playlist_id=favorite_playlist.id
+    ).count()
+
     return jsonify({
         'favorited': favorited,
-        'favorite_count': Favorite.query.filter_by(video_id=video_id).count()
+        'message': message,
+        'favorites_count': favorites_count
     })
+
+
+@app.route('/api/check-favorite/<int:video_id>')
+@login_required
+def check_favorite(video_id):
+    """Проверяет, есть ли видео в избранном у пользователя"""
+    # Находим плейлист "Избранное" пользователя
+    favorite_playlist = Playlist.query.filter_by(
+        user_id=current_user.id,
+        name="Избранное"
+    ).first()
+
+    if not favorite_playlist:
+        return jsonify({'is_favorite': False})
+
+    # Проверяем, есть ли видео в этом плейлисте
+    exists = PlaylistVideo.query.filter_by(
+        playlist_id=favorite_playlist.id,
+        video_id=video_id
+    ).first() is not None
+
+    return jsonify({'is_favorite': exists})
 
 
 # ========== НОВЫЕ МАРШРУТЫ ДЛЯ ПЛЕЙЛИСТОВ ==========
@@ -1362,7 +1430,6 @@ def check_video_in_playlists(video_id):
     return jsonify({'playlist_ids': playlist_ids})
 
 
-
 def init_database():
     with app.app_context():
         try:
@@ -1391,20 +1458,24 @@ def init_database():
         except Exception as e:
             print(f"Ошибка при инициализации БД: {e}")
 
+
 @app.route('/about')
 def about_project():
     """Страница 'О проекте' """
     return render_template('about_project.html')
+
 
 @app.route('/legal')
 def legal_info():
     """Страница 'Юридическая информация' """
     return render_template('legal_info.html')
 
+
 @app.route('/support')
 def support():
     """Страница 'Поддержка и сотрудничество' """
     return render_template('support.html')
+
 
 if __name__ == '__main__':
     with app.app_context():

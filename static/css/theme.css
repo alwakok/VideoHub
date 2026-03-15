@@ -746,3 +746,40 @@ body.dark-theme ::-webkit-scrollbar-thumb:hover {
         min-width: 120px;
     }
 }
+
+/* ========== СТИЛИ ДЛЯ ФУТЕРА В САЙДБАРЕ В ТЕМНОЙ ТЕМЕ ========== */
+body.dark-theme .sidebar-footer {
+    border-top-color: var(--border);
+}
+
+body.dark-theme .sidebar-footer-main-title {
+    color: #808080 !important;  /* Серый цвет */
+}
+
+body.dark-theme .sidebar-footer-main-title::after {
+    background: #808080 !important;  /* Серый цвет */
+    opacity: 0.5;
+}
+
+body.dark-theme .sidebar-footer-menu-bold a {
+    color: var(--text-dark);
+}
+
+body.dark-theme .sidebar-footer-menu-bold a:hover {
+    background: var(--hover);
+    color: var(--text-dark);
+}
+
+body.dark-theme .sidebar-footer-menu-bold a.active {
+    background: var(--primary);
+    color: white;
+}
+
+body.dark-theme .sidebar-footer-menu-bold a.active i {
+    color: white;
+}
+
+body.dark-theme .sidebar-footer-copyright {
+    border-top-color: var(--border);
+    color: var(--text-muted);
+}
