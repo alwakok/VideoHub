@@ -5,110 +5,172 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}VideoHUB{% endblock %}</title>
 
-    <!-- Критический CSS с инлайн-стилями для мгновенного применения темы -->
-    <style id="theme-critical">
-        /* Скрываем контент до применения темы */
-        .theme-loading {
-            visibility: hidden !important;
-            opacity: 0 !important;
+    <!-- КРИТИЧЕСКИ ВАЖНО: скрипт для темы должен быть самым первым в head -->
+    <script>
+        (function() {
+            // Получаем тему ДО отрисовки страницы
+            let theme = localStorage.getItem('theme');
+
+            // Если тема не сохранена, используем системные настройки
+            if (!theme) {
+                theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+
+            // Сразу применяем тему к html
+            if (theme === 'dark') {
+                document.documentElement.classList.add('dark-theme');
+            } else {
+                document.documentElement.classList.remove('dark-theme');
+            }
+
+            // Сохраняем тему для других скриптов
+            window.__theme = theme;
+        })();
+    </script>
+
+    <!-- Базовые стили для мгновенного применения темы (без задержки) -->
+    <style>
+        /* Базовая светлая тема по умолчанию */
+        * {
+            transition: none !important;
         }
 
-        /* Базовые стили для мгновенного применения темы */
         body {
             margin: 0;
             padding: 0;
-            transition: none !important;
             background-color: #F2F3F4;
             color: #333333;
         }
 
-        body.dark-theme {
+        /* Темная тема - применяется сразу через класс на html */
+        html.dark-theme body {
             background-color: #121212 !important;
             color: #E0E0E0 !important;
         }
 
-        /* Принудительное применение темы к основным элементам */
-        body.dark-theme .navbar,
-        body.dark-theme .sidebar,
-        body.dark-theme .video-card,
-        body.dark-theme .profile-header,
-        body.dark-theme .comments-section,
-        body.dark-theme .footer,
-        body.dark-theme .auth-container,
-        body.dark-theme .upload-container,
-        body.dark-theme .edit-profile-container,
-        body.dark-theme .edit-video-container,
-        body.dark-theme .search-header,
-        body.dark-theme .search-tips,
-        body.dark-theme .no-results,
-        body.dark-theme .modal-content,
-        body.dark-theme .dropdown,
-        body.dark-theme .guest-settings-modal {
+        /* Стили для темной темы на основных элементах */
+        html.dark-theme .navbar,
+        html.dark-theme .sidebar,
+        html.dark-theme .video-card,
+        html.dark-theme .profile-header,
+        html.dark-theme .comments-section,
+        html.dark-theme .footer,
+        html.dark-theme .auth-container,
+        html.dark-theme .upload-container,
+        html.dark-theme .edit-profile-container,
+        html.dark-theme .edit-video-container,
+        html.dark-theme .search-header,
+        html.dark-theme .search-tips,
+        html.dark-theme .no-results,
+        html.dark-theme .modal-content,
+        html.dark-theme .dropdown,
+        html.dark-theme .guest-settings-modal,
+        html.dark-theme .playlist-card,
+        html.dark-theme .channel-card,
+        html.dark-theme .playlist-header,
+        html.dark-theme .playlists-page .page-header,
+        html.dark-theme .history-item,
+        html.dark-theme .video-info-container,
+        html.dark-theme .profile-tabs,
+        html.dark-theme .profile-content,
+        html.dark-theme .admin-page,
+        html.dark-theme .admin-header,
+        html.dark-theme .admin-table-container,
+        html.dark-theme .info-page .info-card,
+        html.dark-theme .legal-page .legal-card,
+        html.dark-theme .support-page .support-card,
+        html.dark-theme .faq-page .faq-item,
+        html.dark-theme .faq-page .faq-header,
+        html.dark-theme .faq-page .faq-categories,
+        html.dark-theme .faq-page .faq-content {
             background-color: #1E1E1E !important;
             border-color: #333333 !important;
         }
 
-        body.dark-theme input,
-        body.dark-theme textarea,
-        body.dark-theme select {
+        html.dark-theme input,
+        html.dark-theme textarea,
+        html.dark-theme select {
             background-color: #121212 !important;
             color: #E0E0E0 !important;
             border-color: #333333 !important;
         }
 
-        body.dark-theme .btn-action,
-        body.dark-theme .filter-btn,
-        body.dark-theme .tab-btn {
+        html.dark-theme .btn-action,
+        html.dark-theme .filter-btn,
+        html.dark-theme .tab-btn {
             background-color: #2C2C2C !important;
             color: #E0E0E0 !important;
         }
 
-        body.dark-theme .sidebar-link {
+        html.dark-theme .sidebar-link {
             color: #E0E0E0 !important;
         }
 
-        body.dark-theme .sidebar-link.active {
+        html.dark-theme .sidebar-link.active {
             background-color: #BB86FC !important;
             color: white !important;
         }
+
+        html.dark-theme .video-title,
+        html.dark-theme .playlist-title,
+        html.dark-theme .channel-name,
+        html.dark-theme .profile-name-section h1,
+        html.dark-theme .page-header h1 {
+            color: #FFFFFF !important;
+        }
+
+        html.dark-theme .video-meta,
+        html.dark-theme .playlist-meta,
+        html.dark-theme .playlist-description,
+        html.dark-theme .profile-email,
+        html.dark-theme .profile-join-date,
+        html.dark-theme .video-date,
+        html.dark-theme .comment-date,
+        html.dark-theme .stat-label {
+            color: #B0B0B0 !important;
+        }
+
+        /* Предотвращаем видимость белого фона */
+        html:not(.dark-theme) {
+            background-color: #F2F3F4;
+        }
+
+        html.dark-theme {
+            background-color: #121212;
+        }
+
+        /* Стили для уведомлений */
+        .notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 12px 24px;
+        border-radius: 8px;
+        color: white;
+        z-index: 9999;
+        animation: slideIn 0.3s ease forwards;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        font-size: 14px;
+        font-weight: 500;
+        max-width: 350px;
+        pointer-events: none;
+    }
+
+    .notification-success { background-color: #5CB85C; }
+    .notification-error { background-color: #D9534F; }
+    .notification-info { background-color: #B380E6; }
+    .notification-warning { background-color: #FFA500; }
+
+    @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+
+    @keyframes slideOut {
+        from { transform: translateX(0); opacity: 1; }
+        to { transform: translateX(100%); opacity: 0; }
+    }
     </style>
-
-    <!-- Скрипт для немедленного применения темы -->
-    <script>
-        (function() {
-            try {
-                // Добавляем класс загрузки для скрытия контента
-                document.documentElement.classList.add('theme-loading');
-                document.body.classList.add('theme-loading');
-
-                const savedTheme = localStorage.getItem('theme');
-                const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-                const theme = savedTheme || (prefersDark ? 'dark' : 'light');
-
-                if (theme === 'dark') {
-                    document.documentElement.classList.add('dark-theme');
-                    document.body.classList.add('dark-theme');
-                } else {
-                    document.documentElement.classList.remove('dark-theme');
-                    document.body.classList.remove('dark-theme');
-                }
-
-                // Сохраняем тему в localStorage для использования в основном коде
-                window.__theme = theme;
-
-                // Убираем класс загрузки после небольшой задержки
-                setTimeout(function() {
-                    document.documentElement.classList.remove('theme-loading');
-                    document.body.classList.remove('theme-loading');
-                }, 50);
-            } catch (e) {
-                console.error('Theme initialization error:', e);
-                // В случае ошибки все равно показываем контент
-                document.documentElement.classList.remove('theme-loading');
-                document.body.classList.remove('theme-loading');
-            }
-        })();
-    </script>
 
     <!-- Основные стили -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
@@ -221,10 +283,15 @@
                             </a>
                             {% endif %}
 
-                            <button class="theme-toggle" onclick="window.toggleTheme()">
+                            <!-- Переключатель темы в виде тумблера -->
+                            <div class="theme-toggle-item">
                                 <i class="fas fa-moon"></i>
                                 <span>Ночная тема</span>
-                            </button>
+                                <label class="theme-switch">
+                                    <input type="checkbox" id="user-theme-toggle" class="theme-checkbox">
+                                    <span class="theme-slider"></span>
+                                </label>
+                            </div>
                             <a href="{{ url_for('logout') }}">
                                 <i class="fas fa-sign-out-alt"></i> Выйти
                             </a>
@@ -268,63 +335,62 @@
             </div>
 
             <!-- Вы -->
-
-                <div class="sidebar-section">
-                    <h3 class="sidebar-title">Вы</h3>
-                    <ul class="sidebar-menu">
-                        {% if current_user.is_authenticated %}
-                            <li>
-                                <a href="{{ url_for('watch_history') }}" class="sidebar-link {% if request.endpoint == 'watch_history' %}active{% endif %}">
-                                    <i class="fas fa-history"></i>
-                                    <span>История</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a href="{{ url_for('playlists') }}" class="sidebar-link {% if request.endpoint == 'playlists' %}active{% endif %}">
-                                    <i class="fas fa-list"></i>
-                                    <span>Плейлисты</span>
-                                    {% if current_user.playlists %}
-                                    <span class="badge">{{ current_user.playlists|length }}</span>
-                                    {% endif %}
-                                </a>
-                            </li>
-                            <li>
-                                {% set favorite_playlist = current_user.playlists|selectattr('name', 'equalto', 'Избранное')|first %}
-                                {% if favorite_playlist %}
-                                <a href="{{ url_for('playlist_detail', playlist_id=favorite_playlist.id) }}"
-                                   class="sidebar-link {% if request.endpoint == 'playlist_detail' and playlist and playlist.name == 'Избранное' %}active{% endif %}">
-                                    <i class="fas fa-star"></i>
-                                    <span>Избранное</span>
-                                    {% if favorite_playlist.videos|length > 0 %}
-                                    <span class="badge">{{ favorite_playlist.videos|length }}</span>
-                                    {% endif %}
-                                </a>
-                                {% else %}
-                                <a href="{{ url_for('favorites') }}"
-                                   class="sidebar-link {% if request.endpoint == 'favorites' %}active{% endif %}">
-                                    <i class="fas fa-star"></i>
-                                    <span>Избранное</span>
-                                </a>
+            <div class="sidebar-section">
+                <h3 class="sidebar-title">Вы</h3>
+                <ul class="sidebar-menu">
+                    {% if current_user.is_authenticated %}
+                        <li>
+                            <a href="{{ url_for('watch_history') }}" class="sidebar-link {% if request.endpoint == 'watch_history' %}active{% endif %}">
+                                <i class="fas fa-history"></i>
+                                <span>История</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('playlists') }}" class="sidebar-link {% if request.endpoint == 'playlists' %}active{% endif %}">
+                                <i class="fas fa-list"></i>
+                                <span>Плейлисты</span>
+                                {% if current_user.playlists %}
+                                <span class="badge">{{ current_user.playlists|length }}</span>
                                 {% endif %}
-                            </li>
-                            <li>
-                                <a href="{{ url_for('subscriptions') }}" class="sidebar-link {% if request.endpoint == 'subscriptions' %}active{% endif %}">
-                                    <i class="fas fa-user-friends"></i>
-                                    <span>Подписки</span>
-                                </a>
-                            </li>
-                        {% else %}
-                            {% for item in [('history', 'История', 'watch_history'), ('list', 'Плейлисты', 'playlists'), ('star', 'Избранное', 'favorites'), ('user-friends', 'Подписки', 'subscriptions')] %}
-                            <li>
-                                <a href="{{ url_for('login') }}" class="sidebar-link">
-                                    <i class="fas fa-{{ item[0] }}"></i>
-                                    <span>{{ item[1] }}</span>
-                                </a>
-                            </li>
-                            {% endfor %}
-                        {% endif %}
-                    </ul>
-                </div>
+                            </a>
+                        </li>
+                        <li>
+                            {% set favorite_playlist = current_user.playlists|selectattr('name', 'equalto', 'Избранное')|first %}
+                            {% if favorite_playlist %}
+                            <a href="{{ url_for('playlist_detail', playlist_id=favorite_playlist.id) }}"
+                               class="sidebar-link {% if request.endpoint == 'playlist_detail' and playlist and playlist.name == 'Избранное' %}active{% endif %}">
+                                <i class="fas fa-star"></i>
+                                <span>Избранное</span>
+                                {% if favorite_playlist.videos|length > 0 %}
+                                <span class="badge">{{ favorite_playlist.videos|length }}</span>
+                                {% endif %}
+                            </a>
+                            {% else %}
+                            <a href="{{ url_for('favorites') }}"
+                               class="sidebar-link {% if request.endpoint == 'favorites' %}active{% endif %}">
+                                <i class="fas fa-star"></i>
+                                <span>Избранное</span>
+                            </a>
+                            {% endif %}
+                        </li>
+                        <li>
+                            <a href="{{ url_for('subscriptions') }}" class="sidebar-link {% if request.endpoint == 'subscriptions' %}active{% endif %}">
+                                <i class="fas fa-user-friends"></i>
+                                <span>Подписки</span>
+                            </a>
+                        </li>
+                    {% else %}
+                        {% for item in [('history', 'История', 'watch_history'), ('list', 'Плейлисты', 'playlists'), ('star', 'Избранное', 'favorites'), ('user-friends', 'Подписки', 'subscriptions')] %}
+                        <li>
+                            <a href="{{ url_for('login') }}" class="sidebar-link">
+                                <i class="fas fa-{{ item[0] }}"></i>
+                                <span>{{ item[1] }}</span>
+                            </a>
+                        </li>
+                        {% endfor %}
+                    {% endif %}
+                </ul>
+            </div>
 
             <!-- Ваши плейлисты -->
             {% if current_user.is_authenticated and current_user.playlists %}
@@ -358,54 +424,36 @@
 
             <!-- Футер в сайдбаре -->
             <div class="sidebar-footer">
-                <!-- Заголовок О VIDEOHUB (жирный, серого цвета) -->
                 <div class="sidebar-footer-header">
                     <span class="sidebar-footer-main-title">О VIDEOHUB</span>
                 </div>
-
-                <!-- Три основные ссылки (жирные) -->
                 <div class="sidebar-footer-section">
                     <ul class="sidebar-footer-menu sidebar-footer-menu-bold">
                         <li>
-                            <a href="{{ url_for('about_project') }}"
-                               class="sidebar-footer-link {% if request.endpoint == 'about_project' %}active{% endif %}">
+                            <a href="{{ url_for('about_project') }}" class="sidebar-footer-link {% if request.endpoint == 'about_project' %}active{% endif %}">
                                 <i class="fas fa-info-circle"></i> О проекте
                             </a>
                         </li>
                         <li>
-                            <a href="{{ url_for('legal_info') }}"
-                               class="sidebar-footer-link {% if request.endpoint == 'legal_info' %}active{% endif %}">
+                            <a href="{{ url_for('legal_info') }}" class="sidebar-footer-link {% if request.endpoint == 'legal_info' %}active{% endif %}">
                                 <i class="fas fa-gavel"></i> Юридическая информация
                             </a>
                         </li>
                         <li>
-                            <a href="{{ url_for('support') }}"
-                               class="sidebar-footer-link {% if request.endpoint == 'support' %}active{% endif %}">
+                            <a href="{{ url_for('support') }}" class="sidebar-footer-link {% if request.endpoint == 'support' %}active{% endif %}">
                                 <i class="fas fa-headset"></i> Поддержка и сотрудничество
                             </a>
                         </li>
                     </ul>
                 </div>
-
                 <div class="sidebar-footer-copyright">
                     <p>&copy; 2026 VideoHUB. Все права защищены.</p>
                 </div>
             </div>
-
         </div>
     </aside>
     {% endif %}
 
-    <!-- Флеш-сообщения -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            <div class="flash-messages">
-                {% for category, message in messages %}
-                    <div class="flash flash-{{ category }}">{{ message }}</div>
-                {% endfor %}
-            </div>
-        {% endif %}
-    {% endwith %}
 
     <!-- Основной контент -->
     <main class="main-content {% if request.endpoint == 'video_detail' %}video-page-content{% endif %}">
@@ -414,59 +462,31 @@
         </div>
     </main>
 
-    <!-- Сохранение позиции скролла сайдбара и состояния плейлистов -->
+    <!-- Сохранение позиции скролла и плейлистов -->
     <script>
     (function() {
-        // НОВАЯ СТРОКА: Определяем, было ли обновление страницы (F5)
         const isReload = performance.getEntriesByType('navigation')[0]?.type === 'reload';
-
-        // НОВЫЙ БЛОК: Если это F5 - очищаем сохраненное состояние
         if (isReload) {
             sessionStorage.removeItem('visiblePlaylists');
             sessionStorage.removeItem('showMoreExists');
             sessionStorage.removeItem('sidebarScrollPosition');
         }
-
-        // Сохраняем позицию скролла перед уходом со страницы
         const sidebar = document.getElementById('sidebar');
         if (sidebar) {
-            // НОВАЯ СТРОКА: Восстанавливаем позицию при загрузке (только если не было F5)
             const savedScrollTop = sessionStorage.getItem('sidebarScrollPosition');
-            if (savedScrollTop && !isReload) {
-                sidebar.scrollTop = parseInt(savedScrollTop);
-            }
-
-            // Сохраняем позицию перед уходом со страницы
-            window.addEventListener('beforeunload', function() {
-                sessionStorage.setItem('sidebarScrollPosition', sidebar.scrollTop);
-            });
-
-            // Также сохраняем при скролле (на всякий случай)
+            if (savedScrollTop && !isReload) sidebar.scrollTop = parseInt(savedScrollTop);
+            window.addEventListener('beforeunload', () => sessionStorage.setItem('sidebarScrollPosition', sidebar.scrollTop));
             let scrollTimeout;
-            sidebar.addEventListener('scroll', function() {
+            sidebar.addEventListener('scroll', () => {
                 clearTimeout(scrollTimeout);
-                scrollTimeout = setTimeout(function() {
-                    sessionStorage.setItem('sidebarScrollPosition', sidebar.scrollTop);
-                }, 100);
+                scrollTimeout = setTimeout(() => sessionStorage.setItem('sidebarScrollPosition', sidebar.scrollTop), 100);
             });
         }
-
-        // Для ссылок в сайдбаре - добавляем плавный переход с сохранением позиции
         document.querySelectorAll('.sidebar a, .sidebar-footer a').forEach(link => {
-            link.addEventListener('click', function(e) {
-                // Сохраняем позицию перед переходом
-                if (sidebar) {
-                    sessionStorage.setItem('sidebarScrollPosition', sidebar.scrollTop);
-                }
-
-                // Сохраняем состояние развернутых плейлистов
+            link.addEventListener('click', () => {
+                if (sidebar) sessionStorage.setItem('sidebarScrollPosition', sidebar.scrollTop);
                 const showMoreContainer = document.getElementById('show-more-container');
-                if (showMoreContainer) {
-                    // Сохраняем, что кнопка еще есть (не все плейлисты показаны)
-                    sessionStorage.setItem('showMoreExists', 'true');
-                }
-
-                // Сохраняем количество показанных плейлистов
+                if (showMoreContainer) sessionStorage.setItem('showMoreExists', 'true');
                 const playlistItems = document.querySelectorAll('#playlists-menu > li:not(.show-more-container)');
                 sessionStorage.setItem('visiblePlaylists', playlistItems.length.toString());
             });
@@ -474,169 +494,376 @@
     })();
     </script>
 
-    <!-- Скрипт для показа больше плейлистов (по 5 за раз) с сохранением состояния -->
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Данные всех плейлистов
         const allPlaylists = [
             {% for playlist in current_user.playlists %}
-            {
-                id: {{ playlist.id }},
-                name: "{{ playlist.name|replace('"', '\\"')|safe }}",
-                videos_count: {{ playlist.videos|length }}
-            }{% if not loop.last %},{% endif %}
+            { id: {{ playlist.id }}, name: "{{ playlist.name|replace('"', '\\"')|safe }}", videos_count: {{ playlist.videos|length }} }{% if not loop.last %},{% endif %}
             {% endfor %}
         ];
-
         const totalPlaylists = allPlaylists.length;
         const playlistsMenu = document.getElementById('playlists-menu');
         const showMoreBtn = document.getElementById('show-more-playlists');
-
-        // НОВАЯ СТРОКА: Определяем, было ли обновление страницы
         const isReload = performance.getEntriesByType('navigation')[0]?.type === 'reload';
-
-        // Функция для восстановления состояния плейлистов
         function restorePlaylistsState() {
-            // НОВАЯ СТРОКА: Если было обновление страницы, не восстанавливаем состояние
             if (isReload) return;
-
             const savedVisibleCount = sessionStorage.getItem('visiblePlaylists');
             const showMoreExists = sessionStorage.getItem('showMoreExists') === 'true';
-
             if (savedVisibleCount && parseInt(savedVisibleCount) > 5) {
                 const visibleCount = parseInt(savedVisibleCount);
                 const currentPlaylistId = {% if request.endpoint == 'playlist_detail' %}{{ request.view_args.get('playlist_id', 0) }}{% else %}0{% endif %};
-
-                // Удаляем все кроме первых 5 (они уже есть в HTML)
                 const itemsToRemove = [];
-                playlistsMenu.querySelectorAll('li:not(.show-more-container)').forEach((item, index) => {
-                    if (index >= 5) {
-                        itemsToRemove.push(item);
-                    }
-                });
-
+                playlistsMenu.querySelectorAll('li:not(.show-more-container)').forEach((item, index) => { if (index >= 5) itemsToRemove.push(item); });
                 itemsToRemove.forEach(item => item.remove());
-
-                // Добавляем сохраненное количество плейлистов
                 let addedCount = 5;
                 while (addedCount < visibleCount && addedCount < totalPlaylists) {
                     const nextBatch = allPlaylists.slice(addedCount, Math.min(addedCount + 5, visibleCount));
-
                     nextBatch.forEach(playlist => {
                         const li = document.createElement('li');
                         const activeClass = (playlist.id === currentPlaylistId) ? 'active' : '';
-
-                        // Показываем бейдж только если есть видео
                         const badgeHtml = playlist.videos_count > 0 ? `<span class="badge">${playlist.videos_count}</span>` : '';
-
-                        li.innerHTML = `
-                            <a href="/playlist/${playlist.id}"
-                               class="sidebar-link ${activeClass}">
-                                <i class="fas fa-play"></i>
-                                <span>${playlist.name}</span>
-                                ${badgeHtml}
-                            </a>
-                        `;
-
-                        if (showMoreBtn) {
-                            playlistsMenu.insertBefore(li, showMoreBtn.closest('li'));
-                        } else {
-                            playlistsMenu.appendChild(li);
-                        }
+                        li.innerHTML = `<a href="/playlist/${playlist.id}" class="sidebar-link ${activeClass}"><i class="fas fa-play"></i><span>${playlist.name}</span>${badgeHtml}</a>`;
+                        if (showMoreBtn) playlistsMenu.insertBefore(li, showMoreBtn.closest('li'));
+                        else playlistsMenu.appendChild(li);
                     });
-
                     addedCount += nextBatch.length;
                 }
-
-                // Проверяем, нужно ли показывать кнопку
                 const showMoreContainer = document.getElementById('show-more-container');
-                if (visibleCount >= totalPlaylists) {
-                    if (showMoreContainer) {
-                        showMoreContainer.remove();
-                    }
-                } else if (!showMoreContainer && showMoreExists) {
-                    // Восстанавливаем кнопку если нужно
+                if (visibleCount >= totalPlaylists) { if (showMoreContainer) showMoreContainer.remove(); }
+                else if (!showMoreContainer && showMoreExists) {
                     const li = document.createElement('li');
-                    li.className = 'show-more-container';
-                    li.id = 'show-more-container';
-                    li.innerHTML = `
-                        <a href="#" class="sidebar-link" id="show-more-playlists">
-                            <i class="fas fa-ellipsis-h"></i>
-                            <span>Показать больше</span>
-                        </a>
-                    `;
+                    li.className = 'show-more-container'; li.id = 'show-more-container';
+                    li.innerHTML = `<a href="#" class="sidebar-link" id="show-more-playlists"><i class="fas fa-ellipsis-h"></i><span>Показать больше</span></a>`;
                     playlistsMenu.appendChild(li);
-
-                    // Переинициализируем обработчик для новой кнопки
                     initShowMoreHandler();
                 }
             }
         }
-
-        // Функция для инициализации обработчика кнопки
         function initShowMoreHandler() {
             const newShowMoreBtn = document.getElementById('show-more-playlists');
             if (!newShowMoreBtn) return;
-
             newShowMoreBtn.addEventListener('click', function(e) {
                 e.preventDefault();
-
-                // Текущее количество видимых плейлистов (без учета кнопки)
                 const visibleItems = document.querySelectorAll('#playlists-menu > li:not(.show-more-container)');
                 const currentVisible = visibleItems.length;
-
-                // Показываем следующие 5 плейлистов
                 const nextPlaylists = allPlaylists.slice(currentVisible, currentVisible + 5);
-
                 if (nextPlaylists.length > 0) {
-                    // Получаем ID текущего активного плейлиста
                     const currentPlaylistId = {% if request.endpoint == 'playlist_detail' %}{{ request.view_args.get('playlist_id', 0) }}{% else %}0{% endif %};
-
-                    // Добавляем новые плейлисты перед кнопкой
                     nextPlaylists.forEach(playlist => {
                         const li = document.createElement('li');
                         const activeClass = (playlist.id === currentPlaylistId) ? 'active' : '';
-
-                        // Показываем бейдж только если есть видео
                         const badgeHtml = playlist.videos_count > 0 ? `<span class="badge">${playlist.videos_count}</span>` : '';
-
-                        li.innerHTML = `
-                            <a href="/playlist/${playlist.id}"
-                               class="sidebar-link ${activeClass}">
-                                <i class="fas fa-play"></i>
-                                <span>${playlist.name}</span>
-                                ${badgeHtml}
-                            </a>
-                        `;
-
+                        li.innerHTML = `<a href="/playlist/${playlist.id}" class="sidebar-link ${activeClass}"><i class="fas fa-play"></i><span>${playlist.name}</span>${badgeHtml}</a>`;
                         playlistsMenu.insertBefore(li, newShowMoreBtn.closest('li'));
                     });
-
                     const newVisibleCount = currentVisible + nextPlaylists.length;
-
-                    // Сохраняем новое состояние
                     sessionStorage.setItem('visiblePlaylists', newVisibleCount.toString());
-
-                    // Если показали все плейлисты, удаляем кнопку
-                    if (newVisibleCount >= totalPlaylists) {
-                        newShowMoreBtn.closest('li').remove();
-                        sessionStorage.removeItem('showMoreExists');
-                    } else {
-                        sessionStorage.setItem('showMoreExists', 'true');
-                    }
+                    if (newVisibleCount >= totalPlaylists) { newShowMoreBtn.closest('li').remove(); sessionStorage.removeItem('showMoreExists'); }
+                    else sessionStorage.setItem('showMoreExists', 'true');
                 }
             });
         }
-
-        // Восстанавливаем состояние при загрузке
         restorePlaylistsState();
-
-        // Инициализируем обработчик для существующей кнопки
         initShowMoreHandler();
     });
     </script>
 
+    <!-- Стили для переключателя темы и кнопок -->
+    <style>
+        .theme-toggle-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 20px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .theme-toggle-item:hover { background: var(--secondary); }
+        .theme-toggle-item i { width: 20px; text-align: center; color: var(--primary); }
+        .theme-toggle-item span { flex: 1; color: var(--text); }
+        .theme-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+            margin-left: auto;
+        }
+        .theme-switch input { opacity: 0; width: 0; height: 0; }
+        .theme-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #ccc;
+            transition: 0.3s;
+            border-radius: 24px;
+        }
+        .theme-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+        input:checked + .theme-slider { background-color: var(--primary, #B380E6); }
+        input:checked + .theme-slider:before { transform: translateX(26px); }
+        html.dark-theme .theme-slider { background-color: #555; }
+        html.dark-theme input:checked + .theme-slider { background-color: var(--primary, #BB86FC); }
+        .subscribe-btn {
+            transition: all 0.3s ease;
+            min-width: 140px;
+            height: 40px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: var(--text-dark);
+            color: white;
+            border: none;
+            border-radius: var(--radius);
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .subscribe-btn:hover { background: var(--primary); transform: translateY(-2px); }
+        .subscribe-btn.subscribed { background-color: var(--success); }
+        .subscribe-btn.subscribed:hover { background-color: var(--error); }
+        .author-subscribers {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: var(--text-light);
+            font-size: 14px;
+            margin-top: 3px;
+        }
+        .author-subscribers i { font-size: 12px; }
+
+        /* Включаем переходы после загрузки */
+        .transitions-enabled * {
+            transition: all 0.3s ease !important;
+        }
+
+        /* Предотвращаем мерцание фона */
+        html {
+            background-color: #F2F3F4;
+        }
+        html.dark-theme {
+            background-color: #121212;
+        }
+
+        /* Стили для гостевого меню */
+        .guest-menu {
+            position: relative;
+        }
+        .guest-settings-modal {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: var(--card);
+            box-shadow: var(--shadow);
+            border-radius: var(--radius);
+            min-width: 220px;
+            z-index: 1000;
+            margin-top: 10px;
+            border: 1px solid var(--border);
+        }
+        .guest-settings-modal.active {
+            display: block;
+        }
+        .btn-settings {
+            background: transparent;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 8px;
+            color: var(--text-dark);
+            transition: all 0.3s;
+        }
+        .btn-settings:hover {
+            color: var(--primary);
+            transform: rotate(30deg);
+        }
+        .settings-content {
+            padding: 15px;
+        }
+        .settings-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+        }
+        .settings-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: var(--text-dark);
+        }
+        .settings-label i {
+            width: 20px;
+            color: var(--primary);
+        }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .3s;
+            border-radius: 24px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: var(--primary);
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        .slider.round {
+            border-radius: 24px;
+        }
+        .slider.round:before {
+            border-radius: 50%;
+        }
+        html.dark-theme .slider {
+            background-color: #555;
+        }
+
+          /* Стили для уведомлений */
+    .notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 12px 24px;
+        border-radius: 8px;
+        color: white;
+        z-index: 9999;
+        animation: slideIn 0.3s ease forwards;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        font-size: 14px;
+        font-weight: 500;
+        max-width: 350px;
+        pointer-events: none;
+    }
+
+    .notification-success {
+        background-color: #5CB85C;
+    }
+
+    .notification-error {
+        background-color: #D9534F;
+    }
+
+    .notification-info {
+        background-color: #B380E6;
+    }
+
+    .notification-warning {
+        background-color: #FFA500;
+    }
+
+    @keyframes slideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+
+    @keyframes slideOut {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+    }
+    </style>
+
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+    // Включаем анимации после полной загрузки страницы
+    window.addEventListener('load', function() {
+        document.body.classList.add('transitions-enabled');
+    });
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const userThemeToggle = document.getElementById('user-theme-toggle');
+        const guestThemeToggle = document.getElementById('guest-theme-toggle');
+        // Проверяем тему на html элементе
+        const isDark = document.documentElement.classList.contains('dark-theme');
+        if (userThemeToggle) userThemeToggle.checked = isDark;
+        if (guestThemeToggle) guestThemeToggle.checked = isDark;
+
+        function setTheme(checked) {
+            const newTheme = checked ? 'dark' : 'light';
+            if (newTheme === 'dark') {
+                document.documentElement.classList.add('dark-theme');
+                document.body.classList.add('dark-theme');
+            } else {
+                document.documentElement.classList.remove('dark-theme');
+                document.body.classList.remove('dark-theme');
+            }
+            localStorage.setItem('theme', newTheme);
+            {% if current_user.is_authenticated %}
+            fetch('/api/theme', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ theme: newTheme })
+            }).catch(console.error);
+            {% endif %}
+        }
+
+        if (userThemeToggle) userThemeToggle.addEventListener('change', e => setTheme(e.target.checked));
+        if (guestThemeToggle) guestThemeToggle.addEventListener('change', e => setTheme(e.target.checked));
+
+        const guestSettingsBtn = document.getElementById('guest-settings-btn');
+        const guestSettingsModal = document.getElementById('guest-settings-modal');
+        if (guestSettingsBtn && guestSettingsModal) {
+            guestSettingsBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                guestSettingsModal.classList.toggle('active');
+            });
+            document.addEventListener('click', function(e) {
+                if (!guestSettingsModal.contains(e.target) && !guestSettingsBtn.contains(e.target)) {
+                    guestSettingsModal.classList.remove('active');
+                }
+            });
+        }
+    });
+    </script>
+
     {% block scripts %}{% endblock %}
 </body>
 </html>

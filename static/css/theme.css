@@ -783,3 +783,83 @@ body.dark-theme .sidebar-footer-copyright {
     border-top-color: var(--border);
     color: var(--text-muted);
 }
+
+/* ========== ПЕРЕКЛЮЧАТЕЛЬ ТЕМЫ В ВИДЕ ТУМБЛЕРА ========== */
+.theme-toggle-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.theme-toggle-item:hover {
+    background: var(--secondary);
+}
+
+.theme-toggle-item i {
+    width: 20px;
+    text-align: center;
+    color: var(--primary);
+}
+
+.theme-toggle-item span {
+    flex: 1;
+    color: var(--text);
+}
+
+.theme-switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+    margin-left: auto;
+}
+
+.theme-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.theme-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--border);
+    transition: 0.3s;
+    border-radius: 24px;
+}
+
+.theme-slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+}
+
+input:checked + .theme-slider {
+    background-color: var(--primary);
+}
+
+input:checked + .theme-slider:before {
+    transform: translateX(26px);
+}
+
+/* Темная тема для переключателя */
+body.dark-theme .theme-switch .theme-slider {
+    background-color: var(--border-light);
+}
+
+body.dark-theme .theme-switch input:checked + .theme-slider {
+    background-color: var(--primary);
+}

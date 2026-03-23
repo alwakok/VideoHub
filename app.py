@@ -6,7 +6,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from werkzeug.utils import secure_filename
+from sqlalchemy.exc import IntegrityError
 from config import Config
 import uuid
 
@@ -25,7 +25,8 @@ login_manager.init_app(app)
 login_manager.login_view = 'login'
 
 
-# Модели базы данных
+# ========== МОДЕЛИ БАЗЫ ДАННЫХ ==========
+
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -37,7 +38,6 @@ class User(UserMixin, db.Model):
     theme = db.Column(db.String(20), default='light')
     terms_accepted_at = db.Column(db.DateTime, nullable=True)
 
-    # Новые поля для админ-панели
     is_admin = db.Column(db.Boolean, default=False)
     is_banned = db.Column(db.Boolean, default=False)
     ban_reason = db.Column(db.String(500), nullable=True)
@@ -53,12 +53,14 @@ class User(UserMixin, db.Model):
                                     lazy=True, cascade='all, delete-orphan')
     subscribers = db.relationship('Subscription', foreign_keys='Subscription.channel_id', backref='channel', lazy=True,
                                   cascade='all, delete-orphan')
-
-    # Новые связи для админ-панели
     bans_issued = db.relationship('Ban', foreign_keys='Ban.admin_id', backref='admin', lazy=True,
                                   cascade='all, delete-orphan')
     bans_received = db.relationship('Ban', foreign_keys='Ban.user_id', backref='user', lazy=True,
                                     cascade='all, delete-orphan')
+    created_rooms = db.relationship('WatchRoom', foreign_keys='WatchRoom.created_by', backref='creator', lazy=True,
+                                    cascade='all, delete-orphan')
+    room_participations = db.relationship('RoomParticipant', backref='user', lazy=True, cascade='all, delete-orphan')
+    room_messages = db.relationship('RoomMessage', backref='user', lazy=True, cascade='all, delete-orphan')
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -67,11 +69,9 @@ class User(UserMixin, db.Model):
         return check_password_hash(self.password_hash, password)
 
     def is_banned_active(self):
-        """Проверяет, активен ли бан пользователя"""
         if not self.is_banned:
             return False
         if self.ban_expires and self.ban_expires < datetime.utcnow():
-            # Бан истек, автоматически разбаниваем
             self.is_banned = False
             self.ban_reason = None
             self.ban_expires = None
@@ -93,11 +93,10 @@ class Video(db.Model):
     likes = db.relationship('Like', backref='video', lazy=True, cascade='all, delete-orphan')
     comments = db.relationship('Comment', backref='video', lazy=True, cascade='all, delete-orphan')
     tags = db.Column(db.String(500))
-
-    # Связи с другими таблицами для каскадного удаления
     watch_histories = db.relationship('WatchHistory', backref='video', lazy=True, cascade='all, delete-orphan')
     playlist_videos = db.relationship('PlaylistVideo', backref='video', lazy=True, cascade='all, delete-orphan')
     favorites_ref = db.relationship('Favorite', backref='video', lazy=True, cascade='all, delete-orphan')
+    rooms = db.relationship('WatchRoom', backref='video', lazy=True)
 
 
 class Like(db.Model):
@@ -159,20 +158,57 @@ class Subscription(db.Model):
     __table_args__ = (db.UniqueConstraint('subscriber_id', 'channel_id', name='unique_subscription'),)
 
 
-# Новая модель для истории банов
 class Ban(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     admin_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     reason = db.Column(db.String(500), nullable=False)
-    duration_type = db.Column(db.String(20), nullable=False)  # 'temporary', 'permanent'
-    duration_hours = db.Column(db.Integer, nullable=True)  # для временных банов
+    duration_type = db.Column(db.String(20), nullable=False)
+    duration_hours = db.Column(db.Integer, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     expires_at = db.Column(db.DateTime, nullable=True)
     is_active = db.Column(db.Boolean, default=True)
     unbanned_at = db.Column(db.DateTime, nullable=True)
     unbanned_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     unban_reason = db.Column(db.String(500), nullable=True)
+
+
+class WatchRoom(db.Model):
+    """Комната для совместного просмотра"""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    video_id = db.Column(db.Integer, db.ForeignKey('video.id'), nullable=True)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_public = db.Column(db.Boolean, default=True)
+    max_participants = db.Column(db.Integer, default=10)
+    current_video_time = db.Column(db.Float, default=0)
+    is_playing = db.Column(db.Boolean, default=False)
+    last_sync = db.Column(db.DateTime, default=datetime.utcnow)
+    room_password = db.Column(db.String(200), nullable=True)  # хеш пароля
+
+    participants = db.relationship('RoomParticipant', backref='room', lazy=True, cascade='all, delete-orphan')
+    messages = db.relationship('RoomMessage', backref='room', lazy=True, cascade='all, delete-orphan')
+
+class RoomParticipant(db.Model):
+    """Участник комнаты"""
+    id = db.Column(db.Integer, primary_key=True)
+    room_id = db.Column(db.Integer, db.ForeignKey('watch_room.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    joined_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_active = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint('room_id', 'user_id', name='unique_participant'),)
+
+
+class RoomMessage(db.Model):
+    """Сообщение в комнате"""
+    id = db.Column(db.Integer, primary_key=True)
+    room_id = db.Column(db.Integer, db.ForeignKey('watch_room.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 @login_manager.user_loader
@@ -285,11 +321,11 @@ def create_default_playlists(user_id):
         db.session.commit()
 
 
+# ========== МАРШРУТЫ ==========
+
 @app.before_request
 def check_if_banned():
-    """Проверяет, не забанен ли пользователь перед каждым запросом"""
     if current_user.is_authenticated and current_user.is_banned_active():
-        # Пропускаем только страницу бана и страницы выхода
         if request.endpoint not in ['banned', 'logout', 'static', 'uploaded_thumbnail', 'uploaded_video']:
             return redirect(url_for('banned'))
 
@@ -420,68 +456,317 @@ def faq():
     return render_template('faq.html')
 
 
+# ========== СОВМЕСТНЫЙ ПРОСМОТР ==========
+
 @app.route('/watch-together')
 def watch_together():
-    return render_template('watch_together.html')
+    """Страница совместного просмотра"""
+    rooms = WatchRoom.query.order_by(WatchRoom.created_at.desc()).all()
+    return render_template('watch_together.html', rooms=rooms)
 
-
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if current_user.is_authenticated:
-        return redirect(url_for('index'))
-
+@app.route('/watch-together/create', methods=['GET', 'POST'])
+@login_required
+def create_watch_room():
+    """Создание комнаты для совместного просмотра"""
     if request.method == 'POST':
-        username = request.form.get('username', '').strip()
-        email = request.form.get('email', '').strip()
-        password = request.form.get('password', '')
-        confirm_password = request.form.get('confirm_password', '')
-        accept_terms = request.form.get('accept_terms')
+        name = request.form.get('name', '').strip()
+        description = request.form.get('description', '').strip()
+        is_public = request.form.get('is_public') == 'on'
+        max_participants = int(request.form.get('max_participants', 10))
+        video_id = request.form.get('video_id')
+        room_password = request.form.get('room_password', '').strip()
 
-        errors = []
+        if not name:
+            flash('Название комнаты обязательно', 'error')
+            return redirect(request.url)
 
-        # Запрещаем регистрацию с именем admin
-        if username.lower() == 'admin':
-            errors.append('Это имя пользователя недоступно')
+        room = WatchRoom(
+            name=name,
+            description=description,
+            created_by=current_user.id,
+            is_public=is_public,
+            max_participants=max_participants
+        )
 
-        if accept_terms != 'on':
-            errors.append('Вы должны принять пользовательское соглашение')
+        if video_id:
+            # Проверяем, существует ли видео
+            video = Video.query.get(video_id)
+            if video:
+                room.video_id = int(video_id)
 
-        if not username or len(username) < 3:
-            errors.append('Имя пользователя должно содержать минимум 3 символа')
-        elif User.query.filter_by(username=username).first():
-            errors.append('Username already exists')
+        if room_password:
+            room.room_password = generate_password_hash(room_password)
+            room.is_public = False  # Если есть пароль, комната автоматически приватная
 
-        if not email or not validate_email(email):
-            errors.append('Некорректный email адрес')
-        elif User.query.filter_by(email=email).first():
-            errors.append('Email already registered')
+        db.session.add(room)
+        db.session.commit()
 
-        if len(password) < 6:
-            errors.append('Password must be at least 6 characters')
-        elif password != confirm_password:
-            errors.append('Passwords do not match')
+        participant = RoomParticipant(
+            room_id=room.id,
+            user_id=current_user.id
+        )
+        db.session.add(participant)
+        db.session.commit()
 
-        if errors:
-            for error in errors:
-                flash(error, 'error')
-        else:
-            user = User(
-                username=username,
-                email=email,
-                avatar='default_avatar.png',
-                terms_accepted_at=datetime.utcnow()
-            )
-            user.set_password(password)
+        flash('Комната создана!', 'success')
+        return redirect(url_for('watch_room', room_id=room.id))
 
-            db.session.add(user)
-            db.session.commit()
-            create_default_playlists(user.id)
+    # Получаем все видео (а не только видео текущего пользователя)
+    videos = Video.query.order_by(Video.created_at.desc()).all()
+    return render_template('create_watch_room.html', videos=videos)
 
-            flash('Registration successful! Please log in.', 'success')
-            return redirect(url_for('login'))
+@app.route('/watch-room/<int:room_id>')
+@login_required
+def watch_room(room_id):
+    """Страница комнаты для совместного просмотра"""
+    room = WatchRoom.query.get_or_404(room_id)
 
-    return render_template('register.html')
+    participants_count = RoomParticipant.query.filter_by(room_id=room_id).count()
+    if participants_count >= room.max_participants:
+        flash('Комната заполнена', 'error')
+        return redirect(url_for('watch_together'))
 
+    participant = RoomParticipant.query.filter_by(room_id=room_id, user_id=current_user.id).first()
+    if not participant:
+        participant = RoomParticipant(room_id=room_id, user_id=current_user.id)
+        db.session.add(participant)
+        db.session.commit()
+
+    participants = RoomParticipant.query.filter_by(room_id=room_id).all()
+    messages = RoomMessage.query.filter_by(room_id=room_id).order_by(RoomMessage.created_at.desc()).limit(50).all()
+    messages.reverse()
+
+    return render_template('watch_room.html',
+                           room=room,
+                           participants=participants,
+                           messages=messages)
+
+
+@app.route('/api/watch-room/<int:room_id>/sync', methods=['POST'])
+@login_required
+def sync_watch_room(room_id):
+    """Синхронизация состояния комнаты"""
+    room = WatchRoom.query.get_or_404(room_id)
+
+    participant = RoomParticipant.query.filter_by(room_id=room_id, user_id=current_user.id).first()
+    if not participant:
+        return jsonify({'error': 'Вы не участник этой комнаты'}), 403
+
+    data = request.get_json()
+
+    if 'current_time' in data:
+        room.current_video_time = data['current_time']
+    if 'is_playing' in data:
+        room.is_playing = data['is_playing']
+
+    room.last_sync = datetime.utcnow()
+    participant.last_active = datetime.utcnow()
+    db.session.commit()
+
+    active_participants = RoomParticipant.query.filter_by(room_id=room_id).all()
+    active_users = [{
+        'id': p.user.id,
+        'username': p.user.username,
+        'avatar': url_for('uploaded_thumbnail', filename=p.user.avatar),
+        'is_creator': p.user_id == room.created_by
+    } for p in active_participants]
+
+    return jsonify({
+        'success': True,
+        'current_time': room.current_video_time,
+        'is_playing': room.is_playing,
+        'participants': active_users
+    })
+
+
+@app.route('/api/watch-room/<int:room_id>/state')
+@login_required
+def get_watch_room_state(room_id):
+    """Получение текущего состояния комнаты"""
+    room = WatchRoom.query.get_or_404(room_id)
+
+    participant = RoomParticipant.query.filter_by(room_id=room_id, user_id=current_user.id).first()
+    if not participant:
+        return jsonify({'error': 'Вы не участник этой комнаты'}), 403
+
+    participant.last_active = datetime.utcnow()
+    db.session.commit()
+
+    active_participants = RoomParticipant.query.filter_by(room_id=room_id).all()
+    active_users = [{
+        'id': p.user.id,
+        'username': p.user.username,
+        'avatar': url_for('uploaded_thumbnail', filename=p.user.avatar),
+        'is_creator': p.user_id == room.created_by
+    } for p in active_participants]
+
+    video_info = None
+    if room.video_id:
+        video = Video.query.get(room.video_id)
+        if video:
+            video_info = {
+                'id': video.id,
+                'title': video.title,
+                'thumbnail': url_for('uploaded_thumbnail', filename=video.thumbnail),
+                'filename': video.filename,
+                'duration': video.duration
+            }
+
+    return jsonify({
+        'success': True,
+        'room': {
+            'id': room.id,
+            'name': room.name,
+            'description': room.description,
+            'is_public': room.is_public,
+            'max_participants': room.max_participants,
+            'current_time': room.current_video_time,
+            'is_playing': room.is_playing,
+            'video': video_info,
+            'created_by': room.created_by,
+            'creator_username': room.creator.username
+        },
+        'participants': active_users,
+        'current_user_id': current_user.id
+    })
+
+
+@app.route('/api/watch-room/<int:room_id>/leave', methods=['POST'])
+@login_required
+def leave_watch_room(room_id):
+    """Покинуть комнату"""
+    room = WatchRoom.query.get_or_404(room_id)
+
+    participant = RoomParticipant.query.filter_by(room_id=room_id, user_id=current_user.id).first()
+    if participant:
+        db.session.delete(participant)
+        db.session.commit()
+
+    remaining = RoomParticipant.query.filter_by(room_id=room_id).count()
+    if remaining == 0:
+        db.session.delete(room)
+        db.session.commit()
+
+    return jsonify({'success': True})
+
+
+@app.route('/api/watch-room/<int:room_id>/message', methods=['POST'])
+@login_required
+def send_room_message(room_id):
+    """Отправить сообщение в комнату"""
+    room = WatchRoom.query.get_or_404(room_id)
+    data = request.get_json()
+    message_text = data.get('message', '').strip()
+
+    if not message_text:
+        return jsonify({'error': 'Сообщение не может быть пустым'}), 400
+
+    participant = RoomParticipant.query.filter_by(room_id=room_id, user_id=current_user.id).first()
+    if not participant:
+        return jsonify({'error': 'Вы не участник этой комнаты'}), 403
+
+    message = RoomMessage(
+        room_id=room_id,
+        user_id=current_user.id,
+        message=message_text
+    )
+    db.session.add(message)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'message': {
+            'id': message.id,
+            'user': {
+                'id': current_user.id,
+                'username': current_user.username,
+                'avatar': url_for('uploaded_thumbnail', filename=current_user.avatar)
+            },
+            'message': message.message,
+            'created_at': message.created_at.strftime('%H:%M')
+        }
+    })
+
+
+@app.route('/api/watch-room/<int:room_id>/messages')
+@login_required
+def get_room_messages(room_id):
+    """Получить последние сообщения в комнате"""
+    room = WatchRoom.query.get_or_404(room_id)
+
+    participant = RoomParticipant.query.filter_by(room_id=room_id, user_id=current_user.id).first()
+    if not participant:
+        return jsonify({'error': 'Вы не участник этой комнаты'}), 403
+
+    last_id = request.args.get('last_id', 0, type=int)
+
+    if last_id > 0:
+        messages = RoomMessage.query.filter(
+            RoomMessage.room_id == room_id,
+            RoomMessage.id > last_id
+        ).order_by(RoomMessage.created_at.asc()).all()
+    else:
+        messages = RoomMessage.query.filter_by(room_id=room_id).order_by(RoomMessage.created_at.asc()).limit(50).all()
+
+    return jsonify({
+        'success': True,
+        'messages': [{
+            'id': m.id,
+            'user': {
+                'id': m.user.id,
+                'username': m.user.username,
+                'avatar': url_for('uploaded_thumbnail', filename=m.user.avatar)
+            },
+            'message': m.message,
+            'created_at': m.created_at.strftime('%H:%M')
+        } for m in messages]
+    })
+
+
+@app.route('/api/watch-room/<int:room_id>/change_video', methods=['POST'])
+@login_required
+def change_room_video(room_id):
+    """Сменить видео в комнате"""
+    room = WatchRoom.query.get_or_404(room_id)
+
+    if room.created_by != current_user.id:
+        return jsonify({'error': 'Только создатель комнаты может менять видео'}), 403
+
+    data = request.get_json()
+    video_id = data.get('video_id')
+
+    if video_id:
+        video = Video.query.get(video_id)
+        if not video:
+            return jsonify({'error': 'Видео не найдено'}), 404
+        room.video_id = video_id
+    else:
+        room.video_id = None
+
+    room.current_video_time = 0
+    room.is_playing = False
+    db.session.commit()
+
+    return jsonify({'success': True})
+
+
+@app.route('/api/user/videos')
+@login_required
+def get_user_videos():
+    """API для получения списка ВСЕХ видео (для выбора в комнате)"""
+    # Возвращаем все видео, отсортированные по дате
+    videos = Video.query.order_by(Video.created_at.desc()).all()
+    return jsonify([{
+        'id': v.id,
+        'title': v.title,
+        'thumbnail': url_for('uploaded_thumbnail', filename=v.thumbnail),
+        'views': v.views,
+        'duration': v.duration,
+        'author': v.author.username
+    } for v in videos])
+
+
+# ========== ОСТАЛЬНЫЕ МАРШРУТЫ ==========
 
 @app.route('/video/edit/<int:video_id>', methods=['GET', 'POST'])
 @login_required
@@ -551,23 +836,80 @@ def get_video_info(video_id):
 @app.route('/like/<int:video_id>', methods=['POST'])
 @login_required
 def like_video(video_id):
-    video = Video.query.get_or_404(video_id)
-    existing_like = Like.query.filter_by(user_id=current_user.id, video_id=video_id).first()
+    """Лайк/дизлайк видео"""
+    try:
+        video = Video.query.get_or_404(video_id)
 
-    if existing_like:
-        db.session.delete(existing_like)
-        liked = False
-    else:
-        db.session.add(Like(user_id=current_user.id, video_id=video_id))
-        liked = True
+        # Проверяем, есть ли уже лайк от этого пользователя
+        existing_like = Like.query.filter_by(
+            user_id=current_user.id,
+            video_id=video_id
+        ).first()
 
-    db.session.commit()
+        if existing_like:
+            # Удаляем лайк
+            db.session.delete(existing_like)
+            liked = False
+            message = 'Лайк убран'
+        else:
+            # Добавляем лайк
+            new_like = Like(user_id=current_user.id, video_id=video_id)
+            db.session.add(new_like)
+            liked = True
+            message = 'Видео понравилось!'
 
-    return jsonify({
-        'liked': liked,
-        'like_count': Like.query.filter_by(video_id=video_id).count()
-    })
+        db.session.commit()
 
+        # Получаем актуальное количество лайков
+        like_count = Like.query.filter_by(video_id=video_id).count()
+
+        return jsonify({
+            'success': True,
+            'liked': liked,
+            'like_count': like_count,
+            'message': message
+        })
+
+    except IntegrityError:
+        # Если возникла ошибка уникальности (дубликат), обрабатываем её
+        db.session.rollback()
+
+        # Проверяем еще раз, возможно лайк уже был добавлен другим запросом
+        existing_like = Like.query.filter_by(
+            user_id=current_user.id,
+            video_id=video_id
+        ).first()
+
+        if existing_like:
+            # Если лайк есть, удаляем его (как toggle)
+            db.session.delete(existing_like)
+            liked = False
+            message = 'Лайк убран'
+        else:
+            # Если нет - добавляем
+            new_like = Like(user_id=current_user.id, video_id=video_id)
+            db.session.add(new_like)
+            liked = True
+            message = 'Видео понравилось!'
+
+        db.session.commit()
+
+        like_count = Like.query.filter_by(video_id=video_id).count()
+
+        return jsonify({
+            'success': True,
+            'liked': liked,
+            'like_count': like_count,
+            'message': message
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Ошибка при обработке лайка: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 @app.route('/comment/<int:video_id>', methods=['POST'])
 @login_required
@@ -612,14 +954,12 @@ def delete_video(video_id):
         return jsonify({'error': 'Unauthorized'}), 403
 
     try:
-        # Удаляем все связанные записи
         WatchHistory.query.filter_by(video_id=video_id).delete()
         Like.query.filter_by(video_id=video_id).delete()
         Comment.query.filter_by(video_id=video_id).delete()
         PlaylistVideo.query.filter_by(video_id=video_id).delete()
         Favorite.query.filter_by(video_id=video_id).delete()
 
-        # Удаляем файлы
         video_path = os.path.join(app.config['VIDEO_FOLDER'], video.filename)
         if os.path.exists(video_path):
             os.remove(video_path)
@@ -746,6 +1086,63 @@ def login():
     return render_template('login.html')
 
 
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '')
+        confirm_password = request.form.get('confirm_password', '')
+        accept_terms = request.form.get('accept_terms')
+
+        errors = []
+
+        if username.lower() == 'admin':
+            errors.append('Это имя пользователя недоступно')
+
+        if accept_terms != 'on':
+            errors.append('Вы должны принять пользовательское соглашение')
+
+        if not username or len(username) < 3:
+            errors.append('Имя пользователя должно содержать минимум 3 символа')
+        elif User.query.filter_by(username=username).first():
+            errors.append('Username already exists')
+
+        if not email or not validate_email(email):
+            errors.append('Некорректный email адрес')
+        elif User.query.filter_by(email=email).first():
+            errors.append('Email already registered')
+
+        if len(password) < 6:
+            errors.append('Password must be at least 6 characters')
+        elif password != confirm_password:
+            errors.append('Passwords do not match')
+
+        if errors:
+            for error in errors:
+                flash(error, 'error')
+        else:
+            user = User(
+                username=username,
+                email=email,
+                avatar='default_avatar.png',
+                terms_accepted_at=datetime.utcnow()
+            )
+            user.set_password(password)
+
+            db.session.add(user)
+            db.session.commit()
+            create_default_playlists(user.id)
+
+            flash('Registration successful! Please log in.', 'success')
+            return redirect(url_for('login'))
+
+    return render_template('register.html')
+
+
 @app.route('/logout')
 @login_required
 def logout():
@@ -760,13 +1157,9 @@ def search():
     videos = []
 
     if query:
-        # Приводим запрос к нижнему регистру
         query_lower = query.lower()
-
-        # Получаем все видео из базы
         all_videos = Video.query.all()
 
-        # Фильтруем вручную на Python
         for video in all_videos:
             title_lower = video.title.lower() if video.title else ''
             desc_lower = video.description.lower() if video.description else ''
@@ -777,13 +1170,7 @@ def search():
                     query_lower in tags_lower):
                 videos.append(video)
 
-        # Сортируем по дате (новые сверху)
         videos.sort(key=lambda x: x.created_at, reverse=True)
-
-        print(f"Поиск: '{query}' -> нижний регистр: '{query_lower}'")
-        print(f"Найдено видео: {len(videos)}")
-        for v in videos:
-            print(f"  - {v.title}")
 
     return render_template('search.html', videos=videos, query=query)
 
@@ -806,7 +1193,6 @@ def update_theme():
 @app.route('/favorites')
 @login_required
 def favorites():
-    # Находим плейлист "Избранное"
     favorite_playlist = Playlist.query.filter_by(
         user_id=current_user.id,
         name="Избранное"
@@ -823,65 +1209,120 @@ def favorites():
 @app.route('/favorite/<int:video_id>', methods=['POST'])
 @login_required
 def toggle_favorite(video_id):
-    """Добавляет или удаляет видео из плейлиста Избранное"""
-    video = Video.query.get_or_404(video_id)
+    """Добавить/удалить видео из избранного"""
+    try:
+        video = Video.query.get_or_404(video_id)
 
-    # Находим или создаем плейлист "Избранное"
-    favorite_playlist = Playlist.query.filter_by(
-        user_id=current_user.id,
-        name="Избранное"
-    ).first()
-
-    if not favorite_playlist:
-        favorite_playlist = Playlist(
+        # Получаем или создаем плейлист "Избранное"
+        favorite_playlist = Playlist.query.filter_by(
             user_id=current_user.id,
-            name="Избранное",
-            description="Мои любимые видео",
-            is_public=False
-        )
-        db.session.add(favorite_playlist)
-        db.session.commit()
+            name="Избранное"
+        ).first()
 
-    # Проверяем, есть ли видео в избранном
-    existing = PlaylistVideo.query.filter_by(
-        playlist_id=favorite_playlist.id,
-        video_id=video_id
-    ).first()
+        if not favorite_playlist:
+            favorite_playlist = Playlist(
+                user_id=current_user.id,
+                name="Избранное",
+                description="Мои любимые видео",
+                is_public=False
+            )
+            db.session.add(favorite_playlist)
+            db.session.commit()
 
-    if existing:
-        # Удаляем из избранного
-        db.session.delete(existing)
-        favorited = False
-        message = 'Видео удалено из избранного'
-    else:
-        # Добавляем в избранное
-        playlist_video = PlaylistVideo(
+        # Проверяем, есть ли видео в избранном
+        existing = PlaylistVideo.query.filter_by(
             playlist_id=favorite_playlist.id,
             video_id=video_id
-        )
-        db.session.add(playlist_video)
-        favorited = True
-        message = 'Видео добавлено в избранное'
+        ).first()
 
-    db.session.commit()
+        if existing:
+            # Удаляем из избранного
+            db.session.delete(existing)
+            favorited = False
+            message = 'Видео удалено из избранного'
+        else:
+            # Добавляем в избранное
+            playlist_video = PlaylistVideo(
+                playlist_id=favorite_playlist.id,
+                video_id=video_id
+            )
+            db.session.add(playlist_video)
+            favorited = True
+            message = 'Видео добавлено в избранное'
 
-    # Получаем обновленное количество видео в избранном
-    favorites_count = PlaylistVideo.query.filter_by(
-        playlist_id=favorite_playlist.id
-    ).count()
+        db.session.commit()
 
-    return jsonify({
-        'favorited': favorited,
-        'message': message,
-        'favorites_count': favorites_count
-    })
+        # Получаем актуальное количество видео в избранном
+        favorites_count = PlaylistVideo.query.filter_by(
+            playlist_id=favorite_playlist.id
+        ).count()
 
+        return jsonify({
+            'success': True,
+            'favorited': favorited,
+            'message': message,
+            'favorites_count': favorites_count
+        })
+
+    except IntegrityError:
+        # Если возникла ошибка уникальности, обрабатываем её
+        db.session.rollback()
+
+        favorite_playlist = Playlist.query.filter_by(
+            user_id=current_user.id,
+            name="Избранное"
+        ).first()
+
+        if favorite_playlist:
+            existing = PlaylistVideo.query.filter_by(
+                playlist_id=favorite_playlist.id,
+                video_id=video_id
+            ).first()
+
+            if existing:
+                # Удаляем из избранного
+                db.session.delete(existing)
+                favorited = False
+                message = 'Видео удалено из избранного'
+            else:
+                # Добавляем в избранное
+                playlist_video = PlaylistVideo(
+                    playlist_id=favorite_playlist.id,
+                    video_id=video_id
+                )
+                db.session.add(playlist_video)
+                favorited = True
+                message = 'Видео добавлено в избранное'
+
+            db.session.commit()
+
+            favorites_count = PlaylistVideo.query.filter_by(
+                playlist_id=favorite_playlist.id
+            ).count()
+
+            return jsonify({
+                'success': True,
+                'favorited': favorited,
+                'message': message,
+                'favorites_count': favorites_count
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Ошибка при работе с избранным'
+            }), 500
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Ошибка при работе с избранным: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 @app.route('/api/check-favorite/<int:video_id>')
 @login_required
 def check_favorite(video_id):
-    """Проверяет, есть ли видео в избранном у пользователя"""
-    # Находим плейлист "Избранное" пользователя
     favorite_playlist = Playlist.query.filter_by(
         user_id=current_user.id,
         name="Избранное"
@@ -890,7 +1331,6 @@ def check_favorite(video_id):
     if not favorite_playlist:
         return jsonify({'is_favorite': False})
 
-    # Проверяем, есть ли видео в этом плейлисте
     exists = PlaylistVideo.query.filter_by(
         playlist_id=favorite_playlist.id,
         video_id=video_id
@@ -899,22 +1339,18 @@ def check_favorite(video_id):
     return jsonify({'is_favorite': exists})
 
 
-# ========== НОВЫЕ МАРШРУТЫ ДЛЯ ПЛЕЙЛИСТОВ ==========
-
 @app.route('/playlists')
 @login_required
 def playlists():
-    """Страница со списком плейлистов пользователя"""
     return render_template('playlists.html', playlists=current_user.playlists)
 
 
 @app.route('/playlist/create', methods=['POST'])
 @login_required
 def create_playlist():
-    """Создание нового плейлиста"""
     name = request.form.get('name', '').strip()
     description = request.form.get('description', '').strip()
-    is_public = request.form.get('is_public') == 'on'  # Изменено: 'on' для чекбокса
+    is_public = request.form.get('is_public') == 'on'
 
     if not name:
         return jsonify({'error': 'Название обязательно'}), 400
@@ -944,19 +1380,15 @@ def create_playlist():
 @app.route('/playlist/delete/<int:playlist_id>', methods=['POST'])
 @login_required
 def delete_playlist(playlist_id):
-    """Удаление плейлиста"""
     playlist = Playlist.query.get_or_404(playlist_id)
 
-    # Проверяем, принадлежит ли плейлист текущему пользователю
     if playlist.user_id != current_user.id:
         return jsonify({'error': 'Недостаточно прав'}), 403
 
-    # Запрещаем удаление стандартного плейлиста "Избранное"
     if playlist.name == "Избранное":
         return jsonify({'error': 'Нельзя удалить стандартный плейлист "Избранное"'}), 400
 
     try:
-        # Удаляем все видео из плейлиста (каскадно удалятся автоматически)
         db.session.delete(playlist)
         db.session.commit()
         return jsonify({'success': True})
@@ -968,10 +1400,8 @@ def delete_playlist(playlist_id):
 @app.route('/playlist/toggle_public/<int:playlist_id>', methods=['POST'])
 @login_required
 def toggle_playlist_public(playlist_id):
-    """Переключение публичности плейлиста"""
     playlist = Playlist.query.get_or_404(playlist_id)
 
-    # Проверяем, принадлежит ли плейлист текущему пользователю
     if playlist.user_id != current_user.id:
         return jsonify({'error': 'Недостаточно прав'}), 403
 
@@ -987,15 +1417,12 @@ def toggle_playlist_public(playlist_id):
 @app.route('/playlist/<int:playlist_id>')
 @login_required
 def playlist_detail(playlist_id):
-    """Страница просмотра плейлиста"""
     playlist = Playlist.query.get_or_404(playlist_id)
 
-    # Проверяем доступ: если плейлист приватный и не принадлежит текущему пользователю
     if not playlist.is_public and playlist.user_id != current_user.id:
         flash('Этот плейлист приватный', 'error')
         return redirect(url_for('playlists'))
 
-    # Получаем видео из плейлиста
     videos = [pv.video for pv in playlist.videos]
 
     return render_template('playlist_detail.html', playlist=playlist, videos=videos)
@@ -1004,7 +1431,6 @@ def playlist_detail(playlist_id):
 @app.route('/api/user/playlists')
 @login_required
 def get_user_playlists():
-    """API для получения списка плейлистов пользователя (для модального окна)"""
     playlists = Playlist.query.filter_by(user_id=current_user.id).all()
     return jsonify([{
         'id': p.id,
@@ -1017,7 +1443,6 @@ def get_user_playlists():
 @app.route('/playlist/<int:playlist_id>/add_video', methods=['POST'])
 @login_required
 def add_video_to_playlist(playlist_id):
-    """Добавление видео в плейлист"""
     data = request.get_json()
     video_id = data.get('video_id')
 
@@ -1027,11 +1452,9 @@ def add_video_to_playlist(playlist_id):
     playlist = Playlist.query.get_or_404(playlist_id)
     video = Video.query.get_or_404(video_id)
 
-    # Проверяем, принадлежит ли плейлист текущему пользователю
     if playlist.user_id != current_user.id:
         return jsonify({'error': 'Недостаточно прав'}), 403
 
-    # Проверяем, не добавлено ли видео уже в плейлист
     existing = PlaylistVideo.query.filter_by(
         playlist_id=playlist_id,
         video_id=video_id
@@ -1040,14 +1463,12 @@ def add_video_to_playlist(playlist_id):
     if existing:
         return jsonify({'error': 'Видео уже в этом плейлисте'}), 400
 
-    # Добавляем видео в плейлист
     playlist_video = PlaylistVideo(
         playlist_id=playlist_id,
         video_id=video_id
     )
     db.session.add(playlist_video)
 
-    # Если у плейлиста нет обложки, устанавливаем обложку первого добавленного видео
     if playlist.thumbnail == 'default-playlist.png' and video.thumbnail:
         playlist.thumbnail = video.thumbnail
 
@@ -1062,10 +1483,8 @@ def add_video_to_playlist(playlist_id):
 @app.route('/playlist/<int:playlist_id>/remove_video/<int:video_id>', methods=['POST'])
 @login_required
 def remove_video_from_playlist(playlist_id, video_id):
-    """Удаление видео из плейлиста"""
     playlist = Playlist.query.get_or_404(playlist_id)
 
-    # Проверяем, принадлежит ли плейлист текущему пользователю
     if playlist.user_id != current_user.id:
         return jsonify({'error': 'Недостаточно прав'}), 403
 
@@ -1078,27 +1497,6 @@ def remove_video_from_playlist(playlist_id, video_id):
         return jsonify({'error': 'Видео не найдено в плейлисте'}), 404
 
     db.session.delete(playlist_video)
-    db.session.commit()
-
-    return jsonify({'success': True})
-
-
-# ========== КОНЕЦ НОВЫХ МАРШРУТОВ ==========
-
-
-@app.route('/playlist/<int:playlist_id>/add/<int:video_id>', methods=['POST'])
-@login_required
-def add_to_playlist(playlist_id, video_id):
-    """Старый метод для обратной совместимости"""
-    playlist = Playlist.query.get_or_404(playlist_id)
-
-    if playlist.user_id != current_user.id:
-        return jsonify({'error': 'Недостаточно прав'}), 403
-
-    if PlaylistVideo.query.filter_by(playlist_id=playlist_id, video_id=video_id).first():
-        return jsonify({'error': 'Видео уже в плейлисте'}), 400
-
-    db.session.add(PlaylistVideo(playlist_id=playlist_id, video_id=video_id))
     db.session.commit()
 
     return jsonify({'success': True})
@@ -1148,10 +1546,8 @@ def uploaded_thumbnail(filename):
 @app.route('/subscribe/<int:channel_id>', methods=['POST'])
 @login_required
 def subscribe(channel_id):
-    """Подписка на канал"""
     channel = User.query.get_or_404(channel_id)
 
-    # Нельзя подписаться на самого себя
     if current_user.id == channel_id:
         return jsonify({'error': 'Нельзя подписаться на свой канал'}), 400
 
@@ -1161,19 +1557,16 @@ def subscribe(channel_id):
     ).first()
 
     if existing:
-        # Отписка
         db.session.delete(existing)
         subscribed = False
         message = f'Вы отписались от канала {channel.username}'
     else:
-        # Подписка
         db.session.add(Subscription(subscriber_id=current_user.id, channel_id=channel_id))
         subscribed = True
         message = f'Вы подписались на канал {channel.username}'
 
     db.session.commit()
 
-    # Получаем обновленное количество подписчиков
     subscribers_count = Subscription.query.filter_by(channel_id=channel_id).count()
 
     return jsonify({
@@ -1187,7 +1580,6 @@ def subscribe(channel_id):
 @app.route('/api/channel/<int:channel_id>/subscription-status')
 @login_required
 def get_subscription_status(channel_id):
-    """Проверка статуса подписки"""
     if current_user.is_authenticated:
         subscribed = Subscription.query.filter_by(
             subscriber_id=current_user.id,
@@ -1254,7 +1646,6 @@ def admin_ban():
     if ban_type == 'temporary' and duration:
         expires_at = datetime.utcnow() + timedelta(hours=duration)
 
-    # Создаем запись о бане
     ban = Ban(
         user_id=user.id,
         admin_id=current_user.id,
@@ -1264,7 +1655,6 @@ def admin_ban():
         expires_at=expires_at
     )
 
-    # Обновляем пользователя
     user.is_banned = True
     user.ban_reason = reason
     user.ban_expires = expires_at
@@ -1291,7 +1681,6 @@ def admin_unban():
     if not user:
         return jsonify({'error': 'Пользователь не найден'}), 404
 
-    # Находим активный бан
     active_ban = Ban.query.filter_by(user_id=user_id, is_active=True).first()
     if active_ban:
         active_ban.is_active = False
@@ -1299,7 +1688,6 @@ def admin_unban():
         active_ban.unbanned_by = current_user.id
         active_ban.unban_reason = reason
 
-    # Обновляем пользователя
     user.is_banned = False
     user.ban_reason = None
     user.ban_expires = None
@@ -1320,14 +1708,12 @@ def admin_delete_video(video_id):
         return jsonify({'error': 'Видео не найдено'}), 404
 
     try:
-        # Удаляем все связанные записи
         WatchHistory.query.filter_by(video_id=video_id).delete()
         Like.query.filter_by(video_id=video_id).delete()
         Comment.query.filter_by(video_id=video_id).delete()
         PlaylistVideo.query.filter_by(video_id=video_id).delete()
         Favorite.query.filter_by(video_id=video_id).delete()
 
-        # Удаляем файлы
         video_path = os.path.join(app.config['VIDEO_FOLDER'], video.filename)
         if os.path.exists(video_path):
             os.remove(video_path)
@@ -1369,55 +1755,37 @@ def admin_delete_comment(comment_id):
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/admin/user/<int:user_id>')
-@login_required
-def admin_user_detail(user_id):
-    if not current_user.is_admin:
-        flash('У вас нет доступа к этой странице', 'error')
-        return redirect(url_for('index'))
-
-    user = User.query.get_or_404(user_id)
-    videos = Video.query.filter_by(user_id=user_id).order_by(Video.created_at.desc()).all()
-    comments = Comment.query.filter_by(user_id=user_id).order_by(Comment.created_at.desc()).all()
-
-    return render_template('admin_user_detail.html',
-                           user=user,
-                           videos=videos,
-                           comments=comments)
-
-
 @app.route('/banned')
 @login_required
 def banned():
     if not current_user.is_banned_active():
         return redirect(url_for('index'))
 
-    # Получаем активный бан
     ban = Ban.query.filter_by(user_id=current_user.id, is_active=True).first()
 
     return render_template('banned.html', ban=ban)
 
 
-@app.errorhandler(404)
-def not_found_error(error):
-    return render_template('404.html'), 404
+@app.route('/about')
+def about_project():
+    return render_template('about_project.html')
 
 
-@app.before_request
-def create_tables():
-    if not hasattr(app, 'tables_created'):
-        db.create_all()
-        app.tables_created = True
+@app.route('/legal')
+def legal_info():
+    return render_template('legal_info.html')
+
+
+@app.route('/support')
+def support():
+    return render_template('support.html')
 
 
 @app.route('/api/playlist/check_video/<int:video_id>')
 @login_required
 def check_video_in_playlists(video_id):
-    """Проверяет, в каких плейлистах пользователя уже есть это видео"""
-    # Получаем все плейлисты пользователя
     playlists = Playlist.query.filter_by(user_id=current_user.id).all()
 
-    # Проверяем каждый плейлист на наличие видео
     playlist_ids = []
     for playlist in playlists:
         existing = PlaylistVideo.query.filter_by(
@@ -1430,13 +1798,17 @@ def check_video_in_playlists(video_id):
     return jsonify({'playlist_ids': playlist_ids})
 
 
+@app.errorhandler(404)
+def not_found_error(error):
+    return render_template('404.html'), 404
+
+
 def init_database():
     with app.app_context():
         try:
             db.create_all()
             print("Таблицы базы данных созданы")
 
-            # Создаем стандартного администратора
             admin = User.query.filter_by(username='admin').first()
             if not admin:
                 admin = User(
@@ -1459,22 +1831,74 @@ def init_database():
             print(f"Ошибка при инициализации БД: {e}")
 
 
-@app.route('/about')
-def about_project():
-    """Страница 'О проекте' """
-    return render_template('about_project.html')
+
+@app.route('/api/watch-room/<int:room_id>/check_password', methods=['POST'])
+def check_room_password(room_id):
+    """Проверить пароль для входа в комнату"""
+    room = WatchRoom.query.get_or_404(room_id)
+    data = request.get_json()
+    password = data.get('password')
+
+    if room.room_password:
+        if not password or not check_password_hash(room.room_password, password):
+            return jsonify({'error': 'Неверный пароль'}), 403
+
+    return jsonify({'success': True})
 
 
-@app.route('/legal')
-def legal_info():
-    """Страница 'Юридическая информация' """
-    return render_template('legal_info.html')
+@app.route('/watch-room/<int:room_id>/join', methods=['GET', 'POST'])
+@login_required
+def join_watch_room(room_id):
+    """Страница входа в комнату с паролем"""
+    room = WatchRoom.query.get_or_404(room_id)
+
+    if request.method == 'POST':
+        password = request.form.get('password')
+
+        if room.room_password:
+            if not password or not check_password_hash(room.room_password, password):
+                flash('Неверный пароль', 'error')
+                return redirect(request.url)
+
+        # Проверяем не полная ли комната
+        participants_count = RoomParticipant.query.filter_by(room_id=room_id).count()
+        if participants_count >= room.max_participants:
+            flash('Комната заполнена', 'error')
+            return redirect(url_for('watch_together'))
+
+        # Добавляем пользователя в комнату
+        participant = RoomParticipant.query.filter_by(room_id=room_id, user_id=current_user.id).first()
+        if not participant:
+            participant = RoomParticipant(room_id=room_id, user_id=current_user.id)
+            db.session.add(participant)
+            db.session.commit()
+
+        return redirect(url_for('watch_room', room_id=room_id))
+
+    return render_template('join_watch_room.html', room=room)
 
 
-@app.route('/support')
-def support():
-    """Страница 'Поддержка и сотрудничество' """
-    return render_template('support.html')
+@app.route('/api/watch-room/<int:room_id>/set_password', methods=['POST'])
+@login_required
+def set_room_password(room_id):
+    """Установить пароль для комнаты"""
+    room = WatchRoom.query.get_or_404(room_id)
+
+    if room.created_by != current_user.id:
+        return jsonify({'error': 'Только создатель комнаты может установить пароль'}), 403
+
+    data = request.get_json()
+    password = data.get('password')
+
+    if password:
+        room.room_password = generate_password_hash(password)
+        room.is_public = False
+    else:
+        room.room_password = None
+
+    db.session.commit()
+
+    return jsonify({'success': True})
 
 
 if __name__ == '__main__':

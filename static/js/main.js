@@ -4,6 +4,7 @@
     'use strict';
 
     let isSubmitting = false;
+    let notificationTimeout = null;
 
     function init() {
         initLikes();
@@ -17,10 +18,11 @@
         initShareButtons();
         initFavoriteButtons();
         initSidebarScroll();
-        initActiveFooterLinks(); // Добавьте эту строку
+        initActiveFooterLinks();
+        initFlashMessages();
     }
 
-    // Функция для показа уведомлений
+    // Функция для показа уведомлений (автоматически исчезают через 3 секунды)
     window.showNotification = function(message, type = 'info') {
         const colors = {
             success: '#5CB85C',
@@ -29,88 +31,282 @@
             warning: '#FFA500'
         };
 
-        // Удаляем предыдущее уведомление
+        // Удаляем предыдущее уведомление, если оно есть
         const oldNotification = document.querySelector('.notification');
         if (oldNotification) {
+            if (notificationTimeout) {
+                clearTimeout(notificationTimeout);
+            }
             oldNotification.remove();
         }
 
+        // Создаем новое уведомление
         const notification = document.createElement('div');
         notification.className = `notification notification-${type}`;
         notification.textContent = message;
-        notification.style.backgroundColor = colors[type] || colors.info;
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 24px;
+            background: ${colors[type] || colors.info};
+            color: white;
+            border-radius: 8px;
+            z-index: 9999;
+            animation: slideIn 0.3s ease forwards;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            font-size: 14px;
+            font-weight: 500;
+            max-width: 350px;
+            pointer-events: none;
+        `;
 
         document.body.appendChild(notification);
 
-        setTimeout(() => {
-            notification.style.animation = 'slideOut 0.3s ease';
-            setTimeout(() => notification.remove(), 300);
+        // Устанавливаем таймер на удаление через 3 секунды
+        notificationTimeout = setTimeout(() => {
+            removeNotification(notification);
         }, 3000);
     };
 
-    // Лайки
-    function initLikes() {
-        document.querySelectorAll('.like-btn, #like-btn').forEach(button => {
-            button.addEventListener('click', function(e) {
-                e.preventDefault();
-                const videoId = this.dataset.videoId || this.getAttribute('data-video-id');
-                if (!videoId) return;
+    // Функция для удаления уведомления с анимацией
+    function removeNotification(notification) {
+        if (notification && notification.parentNode) {
+            notification.style.animation = 'slideOut 0.3s ease forwards';
+            setTimeout(() => {
+                if (notification && notification.parentNode) {
+                    notification.remove();
+                }
+                notificationTimeout = null;
+            }, 300);
+        }
+    }
 
-                fetch(`/like/${videoId}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                })
-                .then(res => res.json())
-                .then(data => {
-                    this.classList.toggle('liked', data.liked);
+    // Функция для обработки flash-сообщений (автоматическое исчезновение)
+    function initFlashMessages() {
+        const flashMessages = document.querySelectorAll('.flash');
 
-                    const count = this.querySelector('#like-count, .like-count');
-                    if (count) count.textContent = data.like_count;
+        flashMessages.forEach((flash, index) => {
+            const message = flash.textContent;
+            let type = 'info';
 
-                    window.showNotification(
-                        data.liked ? '❤️ Видео понравилось!' : 'Лайк убран',
-                        'success'
-                    );
-                })
-                .catch(() => window.showNotification('Ошибка при оценке видео', 'error'));
-            });
+            if (flash.classList.contains('flash-success')) {
+                type = 'success';
+            } else if (flash.classList.contains('flash-error')) {
+                type = 'error';
+            }
+
+            flash.remove();
+
+            setTimeout(() => {
+                window.showNotification(message, type);
+            }, index * 500);
         });
     }
 
-    // Избранное
-    function initFavoriteButtons() {
-        document.querySelectorAll('#favorite-btn, .remove-favorite').forEach(button => {
-            button.addEventListener('click', function(e) {
-                e.preventDefault();
-                const videoId = this.dataset.videoId || this.getAttribute('data-video-id');
-                if (!videoId) return;
+// Лайки - УПРОЩЕННАЯ НАДЕЖНАЯ ВЕРСИЯ
+function initLikes() {
+    document.querySelectorAll('.like-btn, #like-btn').forEach(button => {
+        // Удаляем старые обработчики
+        const newButton = button.cloneNode(true);
+        button.parentNode.replaceChild(newButton, button);
 
-                fetch(`/favorite/${videoId}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (this.id === 'favorite-btn') {
-                        if (data.favorited) {
-                            this.innerHTML = '<i class="fas fa-star"></i> <span>В избранном</span>';
-                            this.classList.add('liked');
-                            window.showNotification('⭐ Добавлено в избранное', 'success');
-                        } else {
-                            this.innerHTML = '<i class="fas fa-star"></i> <span>В избранное</span>';
-                            this.classList.remove('liked');
-                            window.showNotification('Удалено из избранного', 'info');
-                        }
-                    } else if (data.favorited === false) {
-                        const card = this.closest('.video-card');
-                        if (card) {
-                            card.remove();
-                            window.showNotification('Удалено из избранного', 'info');
-                        }
+        let isProcessing = false;
+
+        newButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            if (isProcessing) return;
+
+            const videoId = this.dataset.videoId || this.getAttribute('data-video-id');
+            if (!videoId) {
+                console.error('Video ID not found');
+                return;
+            }
+
+            isProcessing = true;
+            const originalHtml = this.innerHTML;
+
+            // Показываем загрузку
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span id="like-count">...</span>';
+            this.disabled = true;
+
+            fetch(`/like/${videoId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin'
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    if (data.liked) {
+                        this.classList.add('liked');
+                        window.showNotification('❤️ ' + data.message, 'success');
+                        this.innerHTML = `<i class="fas fa-heart"></i> <span id="like-count">${data.like_count}</span>`;
+                    } else {
+                        this.classList.remove('liked');
+                        window.showNotification(data.message, 'info');
+                        this.innerHTML = `<i class="far fa-heart"></i> <span id="like-count">${data.like_count}</span>`;
                     }
-                })
-                .catch(() => window.showNotification('Ошибка при добавлении в избранное', 'error'));
+                } else {
+                    throw new Error(data.error || 'Unknown error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                window.showNotification('Ошибка при оценке видео', 'error');
+                this.innerHTML = originalHtml;
+            })
+            .finally(() => {
+                this.disabled = false;
+                isProcessing = false;
             });
+        });
+    });
+}
+
+// Избранное - ИСПРАВЛЕННАЯ ВЕРСИЯ С ЗАЩИТОЙ ОТ ДВОЙНЫХ КЛИКОВ
+function initFavoriteButtons() {
+    document.querySelectorAll('#favorite-btn, .remove-favorite').forEach(button => {
+        // Удаляем старые обработчики
+        const newButton = button.cloneNode(true);
+        button.parentNode.replaceChild(newButton, button);
+
+        let isProcessing = false; // Флаг для предотвращения двойных кликов
+
+        newButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            // Защита от двойных кликов
+            if (isProcessing) {
+                console.log('Favorite request already in progress');
+                return;
+            }
+
+            // Проверяем авторизацию
+            const isAuthenticated = document.querySelector('.user-menu') !== null;
+            if (!isAuthenticated) {
+                window.showNotification('Войдите в аккаунт, чтобы добавлять в избранное', 'warning');
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 1500);
+                return;
+            }
+
+            const videoId = this.dataset.videoId || this.getAttribute('data-video-id');
+            if (!videoId) {
+                console.error('Video ID not found');
+                window.showNotification('Ошибка: видео не найдено', 'error');
+                return;
+            }
+
+            const originalHtml = this.innerHTML;
+            const isFavoriteBtn = this.id === 'favorite-btn';
+            const wasFavorited = this.classList.contains('liked');
+
+            // Оптимистичное обновление UI
+            isProcessing = true;
+
+            // Показываем индикатор загрузки
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>...</span>';
+            this.disabled = true;
+
+            fetch(`/favorite/${videoId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin'
+            })
+            .then(async res => {
+                const data = await res.json();
+                if (!res.ok) {
+                    throw new Error(data.error || `HTTP error! status: ${res.status}`);
+                }
+                return data;
+            })
+            .then(data => {
+                if (data.success === false) {
+                    throw new Error(data.error || 'Unknown error');
+                }
+
+                if (isFavoriteBtn) {
+                    if (data.favorited) {
+                        this.innerHTML = '<i class="fas fa-star"></i> <span>В избранном</span>';
+                        this.classList.add('liked');
+                        window.showNotification('⭐ ' + (data.message || 'Добавлено в избранное'), 'success');
+                    } else {
+                        this.innerHTML = '<i class="fas fa-star"></i> <span>В избранное</span>';
+                        this.classList.remove('liked');
+                        window.showNotification(data.message || 'Удалено из избранного', 'info');
+                    }
+
+                    // Обновляем счетчик в сайдбаре, если есть
+                    if (data.favorites_count !== undefined) {
+                        updateFavoriteBadge(data.favorites_count);
+                    }
+                } else if (data.favorited === false) {
+                    const card = this.closest('.video-card');
+                    if (card) {
+                        card.style.transition = 'all 0.3s';
+                        card.style.opacity = '0';
+                        setTimeout(() => {
+                            card.remove();
+                            window.showNotification(data.message || 'Удалено из избранного', 'info');
+                            if (data.favorites_count !== undefined) {
+                                updateFavoriteBadge(data.favorites_count);
+                            }
+                        }, 300);
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error toggling favorite:', error);
+                window.showNotification(error.message || 'Ошибка при добавлении в избранное', 'error');
+                this.innerHTML = originalHtml;
+                // Восстанавливаем состояние
+                if (wasFavorited) {
+                    this.classList.add('liked');
+                } else {
+                    this.classList.remove('liked');
+                }
+            })
+            .finally(() => {
+                this.disabled = false;
+                isProcessing = false;
+            });
+        });
+    });
+}
+
+    // Функция для обновления счетчика избранного в сайдбаре
+    function updateFavoriteBadge(count) {
+        // Ищем ссылку на избранное в сайдбаре
+        const favoriteLinks = document.querySelectorAll('.sidebar-menu a[href*="playlist"][href*="Избранное"], .sidebar-menu a[href*="favorites"]');
+
+        favoriteLinks.forEach(link => {
+            let badge = link.querySelector('.badge');
+
+            if (count > 0) {
+                if (badge) {
+                    badge.textContent = count;
+                } else {
+                    badge = document.createElement('span');
+                    badge.className = 'badge';
+                    badge.textContent = count;
+                    link.appendChild(badge);
+                }
+            } else {
+                if (badge) {
+                    badge.remove();
+                }
+            }
         });
     }
 
@@ -119,7 +315,6 @@
         const form = document.getElementById('comment-form');
         if (!form) return;
 
-        // Удаляем старые обработчики
         const newForm = form.cloneNode(true);
         form.parentNode.replaceChild(newForm, form);
 
@@ -190,10 +385,10 @@
                 </a>
                 <div class="comment-content">
                     <div class="comment-header">
-                        <a href="/profile/${comment.author.username}" class="comment-author">${comment.author.username}</a>
-                        <span class="comment-date">${comment.created_at}</span>
+                        <a href="/profile/${comment.author.username}" class="comment-author">${escapeHtml(comment.author.username)}</a>
+                        <span class="comment-date">${escapeHtml(comment.created_at)}</span>
                     </div>
-                    <p class="comment-text">${comment.content}</p>
+                    <p class="comment-text">${escapeHtml(comment.content)}</p>
                 </div>
             </div>
         `;
@@ -321,45 +516,36 @@
 
     // Тема
     function initTheme() {
-        // Используем тему, которая уже была установлена в head
         const saved = localStorage.getItem('theme') || 'light';
         const isDark = saved === 'dark';
 
-        // Применяем тему без анимации
         document.body.classList.toggle('dark-theme', isDark);
 
-        // Обновляем все переключатели темы
         document.querySelectorAll('#guest-theme-toggle, .theme-toggle input[type="checkbox"]').forEach(toggle => {
             if (toggle.type === 'checkbox') {
                 toggle.checked = isDark;
             }
         });
 
-        // Убираем класс загрузки, если он еще есть
         document.documentElement.classList.remove('theme-loading');
         document.body.classList.remove('theme-loading');
     }
 
-    // Обновленная функция переключения темы
     window.toggleTheme = function(checked) {
         const isDark = checked !== undefined ? checked : !document.body.classList.contains('dark-theme');
 
-        // Добавляем класс загрузки на время переключения
         document.documentElement.classList.add('theme-loading');
         document.body.classList.add('theme-loading');
 
-        // Применяем тему
         document.body.classList.toggle('dark-theme', isDark);
         localStorage.setItem('theme', isDark ? 'dark' : 'light');
 
-        // Обновляем переключатели
         document.querySelectorAll('#guest-theme-toggle, .theme-toggle input[type="checkbox"]').forEach(toggle => {
             if (toggle.type === 'checkbox') {
                 toggle.checked = isDark;
             }
         });
 
-        // Отправляем на сервер если пользователь авторизован
         if (window.currentUser?.is_authenticated) {
             fetch('/api/theme', {
                 method: 'POST',
@@ -368,7 +554,6 @@
             }).catch(console.error);
         }
 
-        // Убираем класс загрузки через небольшую задержку
         setTimeout(function() {
             document.documentElement.classList.remove('theme-loading');
             document.body.classList.remove('theme-loading');
@@ -451,101 +636,92 @@
             <div class="selected-file-info">
                 <i class="fas fa-file-video"></i>
                 <div>
-                    <strong>${file.name}</strong>
+                    <strong>${escapeHtml(file.name)}</strong>
                     <p>${(file.size / 1024 / 1024).toFixed(2)} MB</p>
                 </div>
             </div>
         `;
     }
 
-    // Функция для обработки скролла sidebar
-    function initSidebarScroll() {
-    const sidebar = document.getElementById('sidebar');
-    if (!sidebar) return;
-
-    // Восстанавливаем позицию при загрузке
-    const savedScrollTop = sessionStorage.getItem('sidebarScrollPosition');
-    if (savedScrollTop) {
-        sidebar.scrollTop = parseInt(savedScrollTop);
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
-    // Сохраняем позицию при скролле
-    let scrollTimeout;
-    sidebar.addEventListener('scroll', function() {
-        clearTimeout(scrollTimeout);
-        scrollTimeout = setTimeout(function() {
+    // Функция для обработки скролла sidebar
+    function initSidebarScroll() {
+        const sidebar = document.getElementById('sidebar');
+        if (!sidebar) return;
+
+        const savedScrollTop = sessionStorage.getItem('sidebarScrollPosition');
+        if (savedScrollTop) {
+            sidebar.scrollTop = parseInt(savedScrollTop);
+        }
+
+        let scrollTimeout;
+        sidebar.addEventListener('scroll', function() {
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(function() {
+                sessionStorage.setItem('sidebarScrollPosition', sidebar.scrollTop);
+            }, 100);
+        });
+
+        window.addEventListener('beforeunload', function() {
             sessionStorage.setItem('sidebarScrollPosition', sidebar.scrollTop);
-        }, 100);
-    });
+        });
 
-    // Сохраняем позицию перед уходом со страницы
-    window.addEventListener('beforeunload', function() {
-        sessionStorage.setItem('sidebarScrollPosition', sidebar.scrollTop);
-    });
+        sidebar.addEventListener('wheel', function(e) {
+            const { scrollTop, scrollHeight, clientHeight } = this;
 
-    // Предотвращаем всплытие события прокрутки
-    sidebar.addEventListener('wheel', function(e) {
-        const { scrollTop, scrollHeight, clientHeight } = this;
+            if (scrollTop === 0 && e.deltaY < 0) {
+                e.preventDefault();
+            }
 
-        // Если дошли до верха и пытаемся скроллить вверх
-        if (scrollTop === 0 && e.deltaY < 0) {
-            e.preventDefault();
-        }
+            if (scrollTop + clientHeight >= scrollHeight && e.deltaY > 0) {
+                e.preventDefault();
+            }
 
-        // Если дошли до низа и пытаемся скроллить вниз
-        if (scrollTop + clientHeight >= scrollHeight && e.deltaY > 0) {
-            e.preventDefault();
-        }
+            e.stopPropagation();
+        }, { passive: false });
 
-        // Останавливаем всплытие события
-        e.stopPropagation();
-    }, { passive: false });
+        sidebar.addEventListener('touchstart', function(e) {
+            this._touchStartY = e.touches[0].clientY;
+            this._touchStartScrollTop = this.scrollTop;
+        });
 
-    // Также обрабатываем touch-события для мобильных
-    sidebar.addEventListener('touchstart', function(e) {
-        this._touchStartY = e.touches[0].clientY;
-        this._touchStartScrollTop = this.scrollTop;
-    });
+        sidebar.addEventListener('touchmove', function(e) {
+            const { scrollTop, scrollHeight, clientHeight } = this;
+            const touchY = e.touches[0].clientY;
+            const deltaY = touchY - (this._touchStartY || touchY);
 
-    sidebar.addEventListener('touchmove', function(e) {
-        const { scrollTop, scrollHeight, clientHeight } = this;
-        const touchY = e.touches[0].clientY;
-        const deltaY = touchY - (this._touchStartY || touchY);
+            if (scrollTop === 0 && deltaY > 0) {
+                e.preventDefault();
+            }
 
-        // Если дошли до верха и пытаемся скроллить вниз
-        if (scrollTop === 0 && deltaY > 0) {
-            e.preventDefault();
-        }
+            if (scrollTop + clientHeight >= scrollHeight && deltaY < 0) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+    }
 
-        // Если дошли до низа и пытаемся скроллить вверх
-        if (scrollTop + clientHeight >= scrollHeight && deltaY < 0) {
-            e.preventDefault();
-        }
-    }, { passive: false });
-}
-
-    // Новая функция для подсветки активных ссылок в футере
+    // Функция для подсветки активных ссылок в футере
     function initActiveFooterLinks() {
-        // Получаем текущий URL и endpoint
         const currentPath = window.location.pathname;
 
-        // Словарь соответствия URL и эндпоинтов
         const endpointMap = {
             '/about': 'about_project',
             '/legal': 'legal_info',
             '/support': 'support'
         };
 
-        // Для каждой ссылки в футере проверяем, соответствует ли она текущему пути
         document.querySelectorAll('.sidebar-footer-menu-bold a').forEach(link => {
             const href = link.getAttribute('href');
 
-            // Проверяем прямое соответствие
             if (href === currentPath) {
                 link.classList.add('active');
             }
 
-            // Также проверяем по эндпоинтам (на случай если есть дополнительные параметры в URL)
             for (const [path, endpoint] of Object.entries(endpointMap)) {
                 if (currentPath.includes(path) && href.includes(path)) {
                     link.classList.add('active');
@@ -561,12 +737,24 @@
         style.id = 'notification-styles';
         style.textContent = `
             @keyframes slideIn {
-                from { transform: translateX(100%); opacity: 0; }
-                to { transform: translateX(0); opacity: 1; }
+                from {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
             }
             @keyframes slideOut {
-                from { transform: translateX(0); opacity: 1; }
-                to { transform: translateX(100%); opacity: 0; }
+                from {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+                to {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
             }
         `;
         document.head.appendChild(style);
