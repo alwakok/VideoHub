@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block title %}Создать комнату - VideoHUB{% endblock %}
+
+{% block content %}
+<div class="create-room-page">
+    <div class="create-room-container">
+        <div class="create-room-header">
+            <h1><i class="fas fa-users"></i> Создать комнату</h1>
+            <p>Смотрите видео вместе с друзьями в реальном времени</p>
+        </div>
+
+        <form method="POST" class="create-room-form">
+            <div class="form-group">
+                <label for="name">Название комнаты *</label>
+                <input type="text" id="name" name="name" required 
+                       placeholder="Введите название комнаты" maxlength="200">
+            </div>
+
+            <div class="form-group">
+                <label for="description">Описание</label>
+                <textarea id="description" name="description" rows="3" 
+                          placeholder="Расскажите о комнате..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="video_id">Выберите видео (необязательно)</label>
+                <select id="video_id" name="video_id">
+                    <option value="">-- Выберите видео --</option>
+                    {% for video in videos %}
+                    <option value="{{ video.id }}">
+                        {{ video.title }} ({{ video.duration }}) - автор: {{ video.author.username }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <p class="help-text">Видео можно будет сменить позже. Доступны все видео на платформе.</p>
+            </div>
+
+            <div class="form-group">
+                <label for="max_participants">Максимум участников</label>
+                <input type="number" id="max_participants" name="max_participants" 
+                       value="10" min="2" max="50">
+            </div>
+
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="is_public" id="is_public_checkbox" checked>
+                    <span>Публичная комната</span>
+                </label>
+                <p class="help-text">Публичные комнаты видны всем пользователям</p>
+                <p class="help-text">Если снять галочку, комната будет приватной и потребуется пароль</p>
+            </div>
+
+            <div class="form-group" id="password_group" style="display: none;">
+                <label for="room_password">Пароль для входа</label>
+                <input type="password" id="room_password" name="room_password"
+                       placeholder="Введите пароль" autocomplete="off">
+                <p class="help-text">Если установить пароль, комната будет приватной и войти можно будет только зная пароль</p>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary btn-large">
+                    <i class="fas fa-door-open"></i> Создать комнату
+                </button>
+                <a href="{{ url_for('watch_together') }}" class="btn btn-secondary">
+                    <i class="fas fa-times"></i> Отмена
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const publicCheckbox = document.getElementById('is_public_checkbox');
+    const passwordGroup = document.getElementById('password_group');
+
+    publicCheckbox.addEventListener('change', function() {
+        if (this.checked) {
+            passwordGroup.style.display = 'none';
+        } else {
+            passwordGroup.style.display = 'block';
+        }
+    });
+});
+</script>
+
+<style>
+.create-room-page {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px 0;
+}
+
+.create-room-container {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 40px;
+    box-shadow: var(--shadow);
+}
+
+.create-room-header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.create-room-header h1 {
+    font-size: 28px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    color: var(--text-dark);
+}
+
+.create-room-header h1 i {
+    color: var(--primary);
+}
+
+.create-room-header p {
+    color: var(--text-light);
+    font-size: 18px;
+}
+
+.create-room-form .form-group {
+    margin-bottom: 25px;
+}
+
+.create-room-form label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: var(--text-dark);
+}
+
+.create-room-form input,
+.create-room-form textarea,
+.create-room-form select {
+    width: 100%;
+    padding: 12px 15px;
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 16px;
+    background: var(--card);
+    color: var(--text);
+}
+
+.create-room-form input:focus,
+.create-room-form textarea:focus,
+.create-room-form select:focus {
+    border-color: var(--primary);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(179, 128, 230, 0.1);
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+}
+
+.checkbox-label input {
+    width: 18px;
+    height: 18px;
+}
+
+.help-text {
+    font-size: 13px;
+    color: var(--text-light);
+    margin-top: 5px;
+}
+
+.form-actions {
+    display: flex;
+    gap: 15px;
+    margin-top: 30px;
+}
+
+.form-actions .btn {
+    flex: 1;
+    justify-content: center;
+}
+
+@media (max-width: 768px) {
+    .create-room-container {
+        padding: 25px;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+    }
+}
+</style>
+{% endblock %}

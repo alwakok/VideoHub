@@ -1,0 +1,674 @@
+{% extends "base.html" %}
+
+{% block title %}VideoHUB - {{ playlist.name }}{% endblock %}
+
+{% block content %}
+<div class="playlist-detail-page">
+    <div class="playlist-header">
+        <div class="playlist-cover">
+            {% if videos %}
+                <!-- Если есть видео - показываем превью первого видео как на главной -->
+                <div class="playlist-preview-wrapper">
+                    {% set first_video = videos[0] %}
+                    <div class="playlist-preview-stacked">
+                        <!-- Основное превью -->
+                        <div class="playlist-main-preview">
+                            <img src="{{ url_for('uploaded_thumbnail', filename=first_video.thumbnail) }}"
+                                 alt="{{ playlist.name }}"
+                                 onerror="this.src='{{ url_for('uploaded_thumbnail', filename='default-thumbnail.jpg') }}'">
+                        </div>
+
+                        <!-- Второе превью (если есть) -->
+                        {% if videos|length > 1 %}
+                            {% set second_video = videos[1] %}
+                            <div class="playlist-preview-back-1">
+                                <img src="{{ url_for('uploaded_thumbnail', filename=second_video.thumbnail) }}"
+                                     alt=""
+                                     onerror="this.src='{{ url_for('uploaded_thumbnail', filename='default-thumbnail.jpg') }}'">
+                            </div>
+                        {% endif %}
+
+                        <!-- Третье превью (если есть) -->
+                        {% if videos|length > 2 %}
+                            {% set third_video = videos[2] %}
+                            <div class="playlist-preview-back-2">
+                                <img src="{{ url_for('uploaded_thumbnail', filename=third_video.thumbnail) }}"
+                                     alt=""
+                                     onerror="this.src='{{ url_for('uploaded_thumbnail', filename='default-thumbnail.jpg') }}'">
+                            </div>
+                        {% endif %}
+
+                        <!-- Количество видео -->
+                        <div class="playlist-video-count">
+                            <i class="fas fa-video"></i> {{ videos|length }}
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <!-- Если нет видео - показываем плейсхолдер для всех плейлистов -->
+                <div class="playlist-preview-placeholder">
+                    <i class="fas fa-list"></i>
+                </div>
+            {% endif %}
+        </div>
+        <div class="playlist-info">
+            <h1>{{ playlist.name }}</h1>
+            <p class="playlist-description">{{ playlist.description or 'Нет описания' }}</p>
+            <div class="playlist-meta">
+                <span><i class="fas fa-user"></i> {{ playlist.user.username }}</span>
+                <span><i class="fas fa-video"></i> {{ videos|length }} видео</span>
+                <span><i class="fas fa-calendar"></i> Создан {{ playlist.created_at.strftime('%d.%m.%Y') }}</span>
+                <span>
+                    {% if playlist.is_public %}
+                    <i class="fas fa-globe"></i> Публичный
+                    {% else %}
+                    <i class="fas fa-lock"></i> Приватный
+                    {% endif %}
+                </span>
+            </div>
+
+            {% if current_user.is_authenticated and current_user.id == playlist.user_id and playlist.name != "Избранное" %}
+            <div class="playlist-owner-actions">
+                <button class="btn-action toggle-public" data-playlist-id="{{ playlist.id }}" data-is-public="{{ 'true' if playlist.is_public else 'false' }}" title="Изменить видимость">
+                    <i class="fas {% if playlist.is_public %}fa-globe{% else %}fa-lock{% endif %}"></i>
+                    <span>Сделать {% if playlist.is_public %}приватным{% else %}публичным{% endif %}</span>
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if videos %}
+    <div class="playlist-videos">
+        <h2>Видео в плейлисте</h2>
+        <div class="video-grid">
+            {% for video in videos %}
+            <div class="video-card" data-video-id="{{ video.id }}">
+                <a href="{{ url_for('video_detail', video_id=video.id) }}" class="video-thumbnail">
+                    <img src="{{ url_for('uploaded_thumbnail', filename=video.thumbnail) }}" alt="{{ video.title }}">
+                    <div class="video-duration">{{ video.duration }}</div>
+                    <div class="video-overlay">
+                        <i class="fas fa-play"></i>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="{{ url_for('video_detail', video_id=video.id) }}">{{ video.title }}</a>
+                    </h3>
+                    <div class="video-meta">
+                        <a href="{{ url_for('profile', username=video.author.username) }}" class="video-author">
+                            {{ video.author.username }}
+                        </a>
+                        <span class="video-views">
+                            <i class="fas fa-eye"></i> {{ video.views }}
+                        </span>
+                        <span class="video-date">
+                            {{ video.created_at.strftime('%d.%m.%Y') }}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Кнопка удаления видео из плейлиста (красная в правом нижнем углу) -->
+                {% if current_user.is_authenticated and current_user.id == playlist.user_id %}
+                <div class="video-delete-overlay">
+                    <button class="btn-delete-video-from-playlist"
+                            data-playlist-id="{{ playlist.id }}"
+                            data-video-id="{{ video.id }}"
+                            data-video-title="{{ video.title }}"
+                            title="Удалить из плейлиста">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-video-slash fa-3x"></i>
+        <h3>Плейлист пуст</h3>
+        <p>Добавьте видео в этот плейлист</p>
+        <a href="{{ url_for('index') }}" class="btn btn-primary">
+            <i class="fas fa-search"></i> Найти видео
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Модальное окно подтверждения удаления видео из плейлиста -->
+<div class="modal" id="delete-video-from-playlist-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-exclamation-triangle" style="color: var(--error);"></i> Подтверждение удаления</h3>
+            <button class="close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p id="delete-video-message"></p>
+            <div class="form-actions">
+                <button class="btn btn-danger" id="confirm-delete-video">
+                    <i class="fas fa-trash"></i> Удалить видео
+                </button>
+                <button class="btn btn-secondary close-modal">Отмена</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Скрипт для динамического обновления обложки при удалении последнего видео -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Функция для обновления обложки плейлиста
+    function updatePlaylistCover() {
+        const videoCards = document.querySelectorAll('.video-card');
+        const playlistCover = document.querySelector('.playlist-cover');
+        const videosCount = document.querySelectorAll('.video-card').length;
+        const playlistMeta = document.querySelector('.playlist-meta span:nth-child(2)');
+
+        if (videoCards.length === 0) {
+            // Если видео не осталось, меняем обложку на плейсхолдер
+            if (playlistCover) {
+                playlistCover.innerHTML = `
+                    <div class="playlist-preview-placeholder">
+                        <i class="fas fa-list"></i>
+                    </div>
+                `;
+            }
+
+            // Обновляем секцию с видео на пустое состояние
+            const playlistVideos = document.querySelector('.playlist-videos');
+            if (playlistVideos) {
+                playlistVideos.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-video-slash fa-3x"></i>
+                        <h3>Плейлист пуст</h3>
+                        <p>Добавьте видео в этот плейлист</p>
+                        <a href="{{ url_for('index') }}" class="btn btn-primary">
+                            <i class="fas fa-search"></i> Найти видео
+                        </a>
+                    </div>
+                `;
+            }
+        }
+
+        // Обновляем счетчик видео в мета-информации
+        if (playlistMeta) {
+            playlistMeta.innerHTML = `<i class="fas fa-video"></i> ${videosCount} видео`;
+        }
+    }
+
+    // Переопределяем обработчик удаления видео
+    const deleteVideoModal = document.getElementById('delete-video-from-playlist-modal');
+    const deleteVideoMessage = document.getElementById('delete-video-message');
+    const confirmDeleteVideoBtn = document.getElementById('confirm-delete-video');
+    const closeBtns = document.querySelectorAll('.close-modal');
+    let currentPlaylistId = null;
+    let currentVideoId = null;
+    let currentVideoTitle = '';
+
+    // Закрытие модальных окон
+    closeBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const modal = this.closest('.modal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        });
+    });
+
+    // Закрытие при клике вне модального окна
+    window.addEventListener('click', (e) => {
+        if (e.target.classList.contains('modal')) {
+            e.target.style.display = 'none';
+        }
+    });
+
+    // Обработчики кнопок удаления видео из плейлиста
+    document.querySelectorAll('.btn-delete-video-from-playlist').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            currentPlaylistId = this.dataset.playlistId;
+            currentVideoId = this.dataset.videoId;
+            currentVideoTitle = this.dataset.videoTitle;
+
+            deleteVideoMessage.textContent = `Удалить видео "${currentVideoTitle}" из плейлиста?`;
+            deleteVideoModal.style.display = 'block';
+        });
+    });
+
+    // Подтверждение удаления видео из плейлиста
+    if (confirmDeleteVideoBtn) {
+        confirmDeleteVideoBtn.addEventListener('click', function() {
+            if (!currentPlaylistId || !currentVideoId) return;
+
+            const originalText = this.innerHTML;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Удаление...';
+            this.disabled = true;
+
+            fetch(`/playlist/${currentPlaylistId}/remove_video/${currentVideoId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Находим и удаляем карточку видео
+                    const videoCard = document.querySelector(`.video-card[data-video-id="${currentVideoId}"]`);
+                    if (videoCard) {
+                        videoCard.style.transition = 'all 0.3s';
+                        videoCard.style.opacity = '0';
+                        videoCard.style.transform = 'scale(0.8)';
+
+                        setTimeout(() => {
+                            videoCard.remove();
+
+                            // Обновляем обложку плейлиста
+                            updatePlaylistCover();
+
+                            // Если это было последнее видео, обновляем интерфейс
+                            const remainingVideos = document.querySelectorAll('.video-card').length;
+                            if (remainingVideos === 0) {
+                                // Дополнительно обновляем счетчик в заголовке
+                                const videoCountSpan = document.querySelector('.playlist-meta span:nth-child(2)');
+                                if (videoCountSpan) {
+                                    videoCountSpan.innerHTML = `<i class="fas fa-video"></i> 0 видео`;
+                                }
+                            }
+                        }, 300);
+                    }
+
+                    deleteVideoModal.style.display = 'none';
+                    window.showNotification('Видео удалено из плейлиста', 'success');
+                } else {
+                    window.showNotification(data.error || 'Ошибка при удалении видео', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                window.showNotification('Ошибка сети', 'error');
+            })
+            .finally(() => {
+                this.innerHTML = originalText;
+                this.disabled = false;
+                deleteVideoModal.style.display = 'none';
+            });
+        });
+    }
+
+    // Функция для показа уведомлений (если не определена)
+    if (typeof window.showNotification !== 'function') {
+        window.showNotification = function(message, type = 'info') {
+            const colors = {
+                success: '#5CB85C',
+                error: '#D9534F',
+                info: '#B380E6',
+                warning: '#FFA500'
+            };
+
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${type}`;
+            notification.textContent = message;
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 12px 24px;
+                background: ${colors[type] || colors.info};
+                color: white;
+                border-radius: 8px;
+                z-index: 9999;
+                animation: slideIn 0.3s ease;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                font-size: 14px;
+                font-weight: 500;
+                max-width: 350px;
+            `;
+
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        };
+    }
+});
+</script>
+
+<style>
+.playlist-header {
+    display: flex;
+    gap: 30px;
+    background: var(--card);
+    padding: 30px;
+    border-radius: var(--radius);
+    margin-bottom: 30px;
+    box-shadow: var(--shadow);
+}
+
+.playlist-cover {
+    width: 300px;
+    height: 169px;
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--secondary);
+    position: relative;
+}
+
+.playlist-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Стили для обложки плейлиста как на главной странице */
+.playlist-preview-wrapper {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+.playlist-preview-stacked {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    aspect-ratio: 16 / 9;
+}
+
+.playlist-main-preview {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10;
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.playlist-main-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.playlist-preview-back-1 {
+    position: absolute;
+    top: -4px;
+    left: 4px;
+    width: 98%;
+    height: 98%;
+    z-index: 5;
+    border-radius: var(--radius);
+    overflow: hidden;
+    opacity: 0.9;
+    transform: rotate(1deg);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.playlist-preview-back-1 img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.playlist-preview-back-2 {
+    position: absolute;
+    top: -8px;
+    left: 8px;
+    width: 96%;
+    height: 96%;
+    z-index: 1;
+    border-radius: var(--radius);
+    overflow: hidden;
+    opacity: 0.7;
+    transform: rotate(2deg);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.playlist-preview-back-2 img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.playlist-preview-placeholder {
+    width: 100%;
+    height: 100%;
+    min-height: 169px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--secondary) 0%, var(--primary) 100%);
+    color: white;
+    font-size: 48px;
+    border-radius: var(--radius);
+}
+
+.playlist-preview-placeholder i {
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+}
+
+/* Количество видео в плейлисте (как на главной) */
+.playlist-video-count {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 500;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    backdrop-filter: blur(4px);
+}
+
+.playlist-video-count i {
+    font-size: 12px;
+}
+
+.playlist-info {
+    flex: 1;
+}
+
+.playlist-info h1 {
+    font-size: 32px;
+    margin-bottom: 15px;
+    color: var(--text-dark);
+}
+
+.playlist-description {
+    color: var(--text-light);
+    margin-bottom: 20px;
+    font-size: 16px;
+    line-height: 1.6;
+}
+
+.playlist-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    font-size: 14px;
+    color: var(--text-light);
+    margin-bottom: 20px;
+}
+
+.playlist-meta span {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.playlist-meta i {
+    width: 16px;
+    text-align: center;
+}
+
+.playlist-owner-actions {
+    margin-top: 15px;
+}
+
+.playlist-owner-actions .btn-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 15px;
+    background: var(--secondary);
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--text-dark);
+    transition: all 0.3s;
+}
+
+.playlist-owner-actions .btn-action:hover {
+    background: var(--primary);
+    color: white;
+    transform: translateY(-2px);
+}
+
+.playlist-videos {
+    margin-top: 30px;
+}
+
+.playlist-videos h2 {
+    font-size: 24px;
+    margin-bottom: 20px;
+    color: var(--text-dark);
+}
+
+/* Контейнер для карточки видео */
+.video-card {
+    position: relative;
+}
+
+/* Оверлей для кнопки удаления (красная в правом нижнем углу) */
+.video-delete-overlay {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    z-index: 10;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.video-card:hover .video-delete-overlay {
+    opacity: 1;
+}
+
+/* Кнопка удаления видео из плейлиста */
+.btn-delete-video-from-playlist {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--error);
+    border: none;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    font-size: 16px;
+}
+
+.btn-delete-video-from-playlist:hover {
+    transform: scale(1.1);
+    background: #c9302c;
+    box-shadow: 0 4px 12px rgba(217, 83, 79, 0.5);
+}
+
+/* Кнопка опасности (красная) */
+.btn-danger {
+    background: var(--error);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.3s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-danger:hover {
+    background: #c9302c;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(217, 83, 79, 0.3);
+}
+
+/* Для темной темы */
+body.dark-theme .playlist-preview-placeholder {
+    background: linear-gradient(135deg, var(--card-hover) 0%, var(--primary) 100%);
+}
+
+/* Анимации */
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOut {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .playlist-header {
+        flex-direction: column;
+    }
+
+    .playlist-cover {
+        width: 100%;
+        height: 200px;
+    }
+
+    .playlist-meta {
+        gap: 10px;
+    }
+
+    .video-delete-overlay {
+        opacity: 1;
+    }
+
+    .playlist-preview-back-1,
+    .playlist-preview-back-2 {
+        display: none; /* Убираем задние превью на мобильных для простоты */
+    }
+
+    .playlist-main-preview {
+        position: relative;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+    }
+}
+</style>
+{% endblock %}

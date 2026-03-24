@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+
+{% block title %}VideoHUB - Поддержка и сотрудничество{% endblock %}
+
+{% block content %}
+<div class="support-page">
+    <div class="support-header">
+        <h1><i class="fas fa-headset"></i> Поддержка и сотрудничество</h1>
+        <p>Помощь пользователям и возможности для партнеров</p>
+    </div>
+
+    <div class="support-grid">
+        <!-- Рекламодателям -->
+        <div class="support-card">
+            <div class="support-icon advertiser">
+                <i class="fas fa-chart-line"></i>
+            </div>
+            <h2>Рекламодателям</h2>
+            <p>Размещайте рекламу на VideoHUB и достигайте своей целевой аудитории</p>
+            <ul class="support-features">
+                <li><i class="fas fa-check"></i> Таргетинг по интересам</li>
+                <li><i class="fas fa-check"></i> Разные форматы рекламы</li>
+                <li><i class="fas fa-check"></i> Прозрачная статистика</li>
+            </ul>
+            <a href="#" class="btn btn-primary">Стать рекламодателем</a>
+        </div>
+
+        <!-- Разработчикам -->
+        <div class="support-card">
+            <div class="support-icon developer">
+                <i class="fas fa-code"></i>
+            </div>
+            <h2>Разработчикам</h2>
+            <p>Интегрируйте VideoHUB в свои проекты с помощью нашего API</p>
+            <ul class="support-features">
+                <li><i class="fas fa-check"></i> REST API</li>
+                <li><i class="fas fa-check"></i> Embed плеер</li>
+                <li><i class="fas fa-check"></i> Документация</li>
+            </ul>
+            <a href="#" class="btn btn-primary">Документация API</a>
+        </div>
+
+        <!-- FAQ (существующая страница) -->
+        <div class="support-card">
+            <div class="support-icon faq">
+                <i class="fas fa-question-circle"></i>
+            </div>
+            <h2>FAQ</h2>
+            <p>Часто задаваемые вопросы о работе платформы</p>
+            <div class="faq-preview">
+                <a href="{{ url_for('faq') }}#account">Как зарегистрироваться?</a>
+                <a href="{{ url_for('faq') }}#video">Как загрузить видео?</a>
+                <a href="{{ url_for('faq') }}#playlist">Как создать плейлист?</a>
+            </div>
+            <a href="{{ url_for('faq') }}" class="btn btn-primary">Все вопросы</a>
+        </div>
+
+        <!-- Как работает VideoHUB -->
+        <div class="support-card">
+            <div class="support-icon how-it-works">
+                <i class="fas fa-cogs"></i>
+            </div>
+            <h2>Как работает VideoHUB</h2>
+            <p>Узнайте, как устроена платформа и как начать ей пользоваться</p>
+            <a href="#" class="btn btn-primary">Подробнее</a>
+        </div>
+    </div>
+</div>
+
+<style>
+.support-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 30px 0;
+}
+
+.support-header {
+    text-align: center;
+    margin-bottom: 50px;
+}
+
+.support-header h1 {
+    font-size: 36px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    color: var(--text-dark);
+}
+
+.support-header h1 i {
+    color: var(--primary);
+}
+
+.support-header p {
+    font-size: 18px;
+    color: var(--text-light);
+}
+
+.support-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 30px;
+}
+
+@media (max-width: 768px) {
+    .support-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.support-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 30px;
+    box-shadow: var(--shadow);
+    text-align: center;
+}
+
+.support-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 25px;
+}
+
+.support-icon.advertiser {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.support-icon.developer {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.support-icon.faq {
+    background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+}
+
+.support-icon.how-it-works {
+    background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+}
+
+.support-icon i {
+    font-size: 36px;
+    color: white;
+}
+
+.support-card h2 {
+    font-size: 24px;
+    margin-bottom: 15px;
+    color: var(--text-dark);
+}
+
+.support-card p {
+    color: var(--text);
+    line-height: 1.6;
+    margin-bottom: 20px;
+}
+
+.support-features {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 25px;
+    text-align: left;
+}
+
+.support-features li {
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text);
+}
+
+.support-features i {
+    color: var(--success);
+    width: 20px;
+}
+
+.faq-preview {
+    background: var(--secondary);
+    padding: 15px;
+    border-radius: var(--radius);
+    margin-bottom: 25px;
+    text-align: left;
+}
+
+.faq-preview a {
+    display: block;
+    padding: 8px 0;
+    color: var(--text);
+    text-decoration: none;
+    border-bottom: 1px solid var(--border);
+}
+
+.faq-preview a:last-child {
+    border-bottom: none;
+}
+
+.faq-preview a:hover {
+    color: var(--primary);
+}
+
+.support-card .btn {
+    width: 100%;
+}
+</style>
+{% endblock %}
