@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block title %}VideoHUB - Юридическая информация{% endblock %}
+
+{% block content %}
+<div class="legal-page">
+    <div class="legal-header">
+        <h1><i class="fas fa-gavel"></i> Юридическая информация</h1>
+        <p>Правовые документы и политики VideoHUB</p>
+    </div>
+
+    <div class="legal-grid">
+        <!-- Пользовательское соглашение (существующая страница) -->
+        <div class="legal-card">
+            <div class="legal-icon">
+                <i class="fas fa-file-contract"></i>
+            </div>
+            <h2>Пользовательское соглашение</h2>
+            <p>Основной документ, регулирующий отношения между VideoHUB и пользователями платформы.</p>
+            <a href="{{ url_for('terms') }}" class="btn btn-primary">
+                <i class="fas fa-file-alt"></i> Читать документ
+            </a>
+        </div>
+
+        <!-- Условия использования -->
+        <div class="legal-card">
+            <div class="legal-icon">
+                <i class="fas fa-clipboard-list"></i>
+            </div>
+            <h2>Условия использования</h2>
+            <p>Правила и условия, которые необходимо соблюдать при использовании сервисов VideoHUB.</p>
+            <a href="#" class="btn btn-primary">
+                <i class="fas fa-file-alt"></i> Читать документ
+            </a>
+        </div>
+
+        <!-- Конфиденциальность -->
+        <div class="legal-card">
+            <div class="legal-icon">
+                <i class="fas fa-lock"></i>
+            </div>
+            <h2>Политика конфиденциальности</h2>
+            <p>Как мы собираем, используем и защищаем ваши персональные данные.</p>
+            <a href="#" class="btn btn-primary">
+                <i class="fas fa-file-alt"></i> Читать документ
+            </a>
+        </div>
+
+        <!-- Правила и безопасность -->
+        <div class="legal-card">
+            <div class="legal-icon">
+                <i class="fas fa-shield-alt"></i>
+            </div>
+            <h2>Правила и безопасность</h2>
+            <p>Стандарты сообщества, правила публикации контента и меры безопасности.</p>
+            <a href="#" class="btn btn-primary">
+                <i class="fas fa-file-alt"></i> Читать правила
+            </a>
+        </div>
+    </div>
+</div>
+
+<style>
+.legal-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 30px 0;
+}
+
+.legal-header {
+    text-align: center;
+    margin-bottom: 50px;
+}
+
+.legal-header h1 {
+    font-size: 36px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    color: var(--text-dark);
+}
+
+.legal-header h1 i {
+    color: var(--primary);
+}
+
+.legal-header p {
+    font-size: 18px;
+    color: var(--text-light);
+}
+
+.legal-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 30px;
+}
+
+@media (max-width: 768px) {
+    .legal-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.legal-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 30px;
+    box-shadow: var(--shadow);
+}
+
+.legal-icon {
+    width: 60px;
+    height: 60px;
+    background: var(--primary);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.legal-icon i {
+    font-size: 28px;
+    color: white;
+}
+
+.legal-card h2 {
+    font-size: 24px;
+    margin-bottom: 15px;
+    color: var(--text-dark);
+}
+
+.legal-card p {
+    color: var(--text);
+    line-height: 1.6;
+    margin-bottom: 25px;
+}
+
+.legal-card .btn {
+    width: 100%;
+}
+</style>
+{% endblock %}

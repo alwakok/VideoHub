@@ -1,0 +1,986 @@
+{% extends "base.html" %}
+
+{% block title %}{{ video.title }} - VideoHUB{% endblock %}
+
+{% block content %}
+<div class="video-page">
+    <div class="video-player-section">
+        <div class="video-player-container">
+            <video id="main-video" controls poster="{{ url_for('uploaded_thumbnail', filename=video.thumbnail) }}">
+                <source src="{{ url_for('uploaded_video', filename=video.filename) }}" type="video/mp4">
+                Ваш браузер не поддерживает видео тег.
+            </video>
+        </div>
+
+        <div class="video-info-container">
+            <h1 class="video-title-main">{{ video.title }}</h1>
+
+            <div class="video-stats">
+                <div class="video-views-count">
+                    <i class="fas fa-eye"></i> {{ video.views }} просмотров
+                </div>
+                <div class="video-date-posted">
+                    <i class="fas fa-calendar"></i> {{ video.created_at.strftime('%d.%m.%Y') }}
+                </div>
+            </div>
+
+            <div class="video-actions">
+                <button id="like-btn" class="btn-action {% if user_liked %}liked{% endif %}" data-video-id="{{ video.id }}">
+                    <i class="fas fa-heart"></i>
+                    <span id="like-count">{{ video.likes|length }}</span>
+                </button>
+                <button id="favorite-btn" class="btn-action" data-video-id="{{ video.id }}">
+                    <i class="fas fa-star"></i>
+                    <span>В избранное</span>
+                </button>
+                <button class="btn-action" id="playlist-btn" data-video-id="{{ video.id }}">
+                    <i class="fas fa-list"></i>
+                    <span>В плейлист</span>
+                </button>
+                <button class="btn-action" id="share-btn">
+                    <i class="fas fa-share"></i>
+                    <span>Поделиться</span>
+                </button>
+                {% if current_user.is_authenticated and current_user.id == video.user_id %}
+                    <a href="{{ url_for('edit_video', video_id=video.id) }}" class="btn-action">
+                        <i class="fas fa-edit"></i>
+                        <span>Редактировать</span>
+                    </a>
+                {% endif %}
+            </div>
+
+            <div class="video-description">
+                <h3>Описание</h3>
+                <p>{{ video.description or 'Нет описания' }}</p>
+                {% if video.tags %}
+                <div class="video-tags">
+                    {% for tag in video.tags.split(',') %}
+                        <a href="{{ url_for('search') }}?q={{ tag.strip() }}" class="tag">{{ tag.strip() }}</a>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="video-author-info">
+                <a href="{{ url_for('profile', username=video.author.username) }}" class="author-avatar">
+                    <img src="{{ url_for('uploaded_thumbnail', filename=video.author.avatar) }}"
+                         alt="{{ video.author.username }}"
+                         onerror="this.src='{{ url_for('uploaded_thumbnail', filename='default_avatar.png') }}'">
+                </a>
+                <div class="author-details">
+                    <a href="{{ url_for('profile', username=video.author.username) }}" class="author-name">
+                        {{ video.author.username }}
+                    </a>
+                    <p class="author-subscribers" id="subscribers-count">
+                        <i class="fas fa-users"></i>
+                        <span id="subscribers-count-value">{{ video.author.subscribers|length }}</span> подписчиков
+                    </p>
+                </div>
+                {% if current_user.is_authenticated and current_user.id != video.user_id %}
+                    <button class="btn btn-primary btn-small subscribe-btn"
+                            data-channel-id="{{ video.user_id }}"
+                            data-channel-name="{{ video.author.username }}">
+                        <i class="fas fa-user-plus"></i> Подписаться
+                    </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Комментарии -->
+    <div class="comments-section">
+        <h3><i class="fas fa-comments"></i> Комментарии <span id="comments-count">{{ comments|length }}</span></h3>
+
+        {% if current_user.is_authenticated %}
+        <div class="add-comment">
+            <form id="comment-form" data-video-id="{{ video.id }}">
+                <div class="comment-input-group">
+                    <div class="comment-avatar">
+                        <img src="{{ url_for('uploaded_thumbnail', filename=current_user.avatar) }}"
+                             alt="{{ current_user.username }}"
+                             onerror="this.src='{{ url_for('uploaded_thumbnail', filename='default_avatar.png') }}'">
+                    </div>
+                    <input type="text" id="comment-input" placeholder="Добавьте комментарий..." required>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-paper-plane"></i> Отправить
+                    </button>
+                </div>
+            </form>
+        </div>
+        {% else %}
+        <div class="login-to-comment">
+            <a href="{{ url_for('login') }}">Войдите</a>, чтобы оставить комментарий
+        </div>
+        {% endif %}
+
+        <div class="comments-list" id="comments-list">
+            {% for comment in comments %}
+            <div class="comment-item" data-comment-id="{{ comment.id }}">
+                <a href="{{ url_for('profile', username=comment.author.username) }}" class="comment-avatar">
+                    <img src="{{ url_for('uploaded_thumbnail', filename=comment.author.avatar) }}"
+                         alt="{{ comment.author.username }}"
+                         onerror="this.src='{{ url_for('uploaded_thumbnail', filename='default_avatar.png') }}'">
+                </a>
+                <div class="comment-content">
+                    <div class="comment-header">
+                        <a href="{{ url_for('profile', username=comment.author.username) }}" class="comment-author">
+                            {{ comment.author.username }}
+                        </a>
+                        <span class="comment-date">{{ comment.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
+                    </div>
+                    <p class="comment-text">{{ comment.content }}</p>
+                </div>
+            </div>
+            {% else %}
+            <div class="no-comments">
+                <p>Пока нет комментариев. Будьте первым!</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Похожие видео -->
+    {% if similar_videos %}
+    <div class="similar-videos">
+        <h3><i class="fas fa-film"></i> Похожие видео</h3>
+        <div class="video-grid">
+            {% for similar_video in similar_videos %}
+            <div class="video-card">
+                <a href="{{ url_for('video_detail', video_id=similar_video.id) }}" class="video-thumbnail">
+                    <img src="{{ url_for('uploaded_thumbnail', filename=similar_video.thumbnail) }}" alt="{{ similar_video.title }}">
+                    <div class="video-duration">{{ similar_video.duration }}</div>
+                    <div class="video-overlay">
+                        <i class="fas fa-play"></i>
+                    </div>
+                </a>
+                <div class="video-info">
+                    <h3 class="video-title">
+                        <a href="{{ url_for('video_detail', video_id=similar_video.id) }}">{{ similar_video.title }}</a>
+                    </h3>
+                    <div class="video-meta">
+                        <a href="{{ url_for('profile', username=similar_video.author.username) }}" class="video-author">
+                            {{ similar_video.author.username }}
+                        </a>
+                        <span class="video-views">
+                            <i class="fas fa-eye"></i> {{ similar_video.views }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Модальное окно для добавления в плейлист -->
+{% if current_user.is_authenticated %}
+<div class="modal" id="playlist-modal">
+    <div class="modal-content playlist-modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-list"></i> Добавить в плейлист</h3>
+            <button class="close-modal" onclick="closePlaylistModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div id="playlists-container" class="playlists-container">
+                <div class="loading-spinner">
+                    <i class="fas fa-spinner fa-spin"></i> Загрузка плейлистов...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<style>
+/* Стили для модального окна плейлистов */
+.playlist-modal-content {
+    max-width: 450px;
+}
+
+.playlists-container {
+    max-height: 400px;
+    overflow-y: auto;
+    padding: 10px 0;
+}
+
+.playlist-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 15px;
+    margin-bottom: 8px;
+    background: var(--secondary);
+    border-radius: var(--radius);
+    transition: all 0.3s;
+}
+
+.playlist-item:hover {
+    background: var(--hover);
+    transform: translateX(5px);
+}
+
+.playlist-item-info {
+    flex: 1;
+}
+
+.playlist-item-name {
+    font-weight: 600;
+    color: var(--text-dark);
+    margin-bottom: 4px;
+}
+
+.playlist-item-meta {
+    font-size: 12px;
+    color: var(--text-light);
+    display: flex;
+    gap: 10px;
+}
+
+.playlist-item-meta i {
+    margin-right: 3px;
+}
+
+.playlist-item-visibility {
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    background: var(--card);
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.playlist-item-actions {
+    margin-left: 10px;
+}
+
+.btn-add-to-playlist {
+    padding: 6px 15px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.3s;
+    white-space: nowrap;
+}
+
+.btn-add-to-playlist:hover {
+    background: var(--primary-dark);
+    transform: translateY(-2px);
+}
+
+.btn-add-to-playlist.added {
+    background: var(--success);
+    cursor: default;
+}
+
+.btn-add-to-playlist.added:hover {
+    background: var(--success);
+    transform: none;
+}
+
+.empty-playlists {
+    text-align: center;
+    padding: 30px 20px;
+    color: var(--text-light);
+}
+
+.empty-playlists i {
+    font-size: 48px;
+    margin-bottom: 15px;
+    opacity: 0.5;
+}
+
+.empty-playlists p {
+    margin-bottom: 20px;
+}
+
+.loading-spinner {
+    text-align: center;
+    padding: 30px;
+    color: var(--text-light);
+}
+
+.loading-spinner i {
+    margin-right: 8px;
+}
+
+/* Для темной темы */
+body.dark-theme .playlist-item {
+    background: var(--card-hover);
+}
+
+body.dark-theme .playlist-item:hover {
+    background: var(--hover);
+}
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    'use strict';
+
+    let isSubmitting = false;
+    let currentVideoId = {{ video.id }};
+
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('=== Video page loaded ===');
+        console.log('Current video ID:', currentVideoId);
+
+        // ===== ФУНКЦИЯ ПОКАЗА УВЕДОМЛЕНИЙ =====
+        window.showNotification = function(message, type = 'info') {
+            const colors = {
+                success: '#5CB85C',
+                error: '#D9534F',
+                info: '#B380E6',
+                warning: '#FFA500'
+            };
+
+            const oldNotification = document.querySelector('.notification');
+            if (oldNotification) {
+                if (window.notificationTimeout) {
+                    clearTimeout(window.notificationTimeout);
+                }
+                oldNotification.remove();
+            }
+
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${type}`;
+            notification.textContent = message;
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 12px 24px;
+                background: ${colors[type] || colors.info};
+                color: white;
+                border-radius: 8px;
+                z-index: 9999;
+                animation: slideIn 0.3s ease forwards;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                font-size: 14px;
+                font-weight: 500;
+                max-width: 350px;
+                pointer-events: none;
+            `;
+
+            document.body.appendChild(notification);
+
+            window.notificationTimeout = setTimeout(() => {
+                if (notification && notification.parentNode) {
+                    notification.style.animation = 'slideOut 0.3s ease forwards';
+                    setTimeout(() => {
+                        if (notification && notification.parentNode) {
+                            notification.remove();
+                        }
+                        window.notificationTimeout = null;
+                    }, 300);
+                }
+            }, 3000);
+        };
+
+        // Добавляем стили для анимаций
+        if (!document.querySelector('#notification-styles')) {
+            const style = document.createElement('style');
+            style.id = 'notification-styles';
+            style.textContent = `
+                @keyframes slideIn {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+                @keyframes slideOut {
+                    from { transform: translateX(0); opacity: 1; }
+                    to { transform: translateX(100%); opacity: 0; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        // ===== ПОДПИСКА НА КАНАЛ =====
+        const subscribeBtn = document.querySelector('.subscribe-btn');
+        const subscribersSpan = document.getElementById('subscribers-count-value');
+
+        if (subscribeBtn && subscribersSpan) {
+            const channelId = subscribeBtn.getAttribute('data-channel-id');
+
+            fetch(`/api/channel/${channelId}/subscription-status`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.subscribed) {
+                        subscribeBtn.classList.add('subscribed');
+                        subscribeBtn.innerHTML = '<i class="fas fa-user-check"></i> Вы подписаны';
+                    }
+                    subscribersSpan.textContent = data.subscribers_count;
+                })
+                .catch(error => console.error('Ошибка проверки подписки:', error));
+
+            subscribeBtn.addEventListener('click', function() {
+                const channelId = this.getAttribute('data-channel-id');
+                const originalText = this.innerHTML;
+
+                this.disabled = true;
+                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Обработка...';
+
+                fetch(`/subscribe/${channelId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        if (data.subscribed) {
+                            this.classList.add('subscribed');
+                            this.innerHTML = '<i class="fas fa-user-check"></i> Вы подписаны';
+                            window.showNotification(data.message, 'success');
+                        } else {
+                            this.classList.remove('subscribed');
+                            this.innerHTML = '<i class="fas fa-user-plus"></i> Подписаться';
+                            window.showNotification(data.message, 'info');
+                        }
+                        if (subscribersSpan) {
+                            subscribersSpan.textContent = data.subscribers_count;
+                        }
+                    } else {
+                        window.showNotification(data.error || 'Ошибка при выполнении операции', 'error');
+                        this.innerHTML = originalText;
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка:', error);
+                    window.showNotification('Ошибка сети. Попробуйте еще раз.', 'error');
+                    this.innerHTML = originalText;
+                })
+                .finally(() => {
+                    this.disabled = false;
+                });
+            });
+        }
+
+        // ===== ЛАЙКИ =====
+        const likeBtn = document.getElementById('like-btn');
+        const likeCount = document.getElementById('like-count');
+
+        if (likeBtn) {
+            const newLikeBtn = likeBtn.cloneNode(true);
+            likeBtn.parentNode.replaceChild(newLikeBtn, likeBtn);
+
+            let isProcessingLike = false;
+
+            newLikeBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                if (isProcessingLike) return;
+
+                const videoId = this.dataset.videoId;
+                const wasLiked = this.classList.contains('liked');
+                const currentCount = parseInt(likeCount.textContent) || 0;
+
+                isProcessingLike = true;
+                this.disabled = true;
+                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>...</span>';
+
+                fetch(`/like/${videoId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        if (data.liked) {
+                            this.classList.add('liked');
+                            this.innerHTML = `<i class="fas fa-heart"></i> <span>${data.like_count}</span>`;
+                            window.showNotification('❤️ Видео понравилось!', 'success');
+                        } else {
+                            this.classList.remove('liked');
+                            this.innerHTML = `<i class="far fa-heart"></i> <span>${data.like_count}</span>`;
+                            window.showNotification('Лайк убран', 'info');
+                        }
+                        if (likeCount) {
+                            likeCount.textContent = data.like_count;
+                        }
+                    } else {
+                        throw new Error(data.error || 'Unknown error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error toggling like:', error);
+                    window.showNotification('Ошибка при оценке видео', 'error');
+                    if (wasLiked) {
+                        this.classList.add('liked');
+                        this.innerHTML = `<i class="fas fa-heart"></i> <span>${currentCount}</span>`;
+                    } else {
+                        this.classList.remove('liked');
+                        this.innerHTML = `<i class="far fa-heart"></i> <span>${currentCount}</span>`;
+                    }
+                })
+                .finally(() => {
+                    this.disabled = false;
+                    isProcessingLike = false;
+                });
+            });
+        }
+
+        // ===== ИЗБРАННОЕ =====
+        const favoriteBtn = document.getElementById('favorite-btn');
+        if (favoriteBtn) {
+            const newFavoriteBtn = favoriteBtn.cloneNode(true);
+            favoriteBtn.parentNode.replaceChild(newFavoriteBtn, favoriteBtn);
+
+            const videoId = newFavoriteBtn.dataset.videoId;
+            let isProcessingFavorite = false;
+
+            // Функция обновления состояния кнопки избранного
+            window.updateFavoriteButton = function(isFavorite, favoritesCount) {
+                if (isFavorite) {
+                    newFavoriteBtn.classList.add('liked');
+                    newFavoriteBtn.innerHTML = '<i class="fas fa-star"></i> <span>В избранном</span>';
+                } else {
+                    newFavoriteBtn.classList.remove('liked');
+                    newFavoriteBtn.innerHTML = '<i class="fas fa-star"></i> <span>В избранное</span>';
+                }
+                if (favoritesCount !== undefined) {
+                    updateFavoriteBadge(favoritesCount);
+                }
+            };
+
+            // Функция проверки статуса избранного при загрузке
+            function checkFavoriteStatus() {
+                console.log('Checking favorite status for video:', videoId);
+                fetch(`/api/check-favorite/${videoId}`, {
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Favorite status response:', data);
+                    window.updateFavoriteButton(data.is_favorite);
+                })
+                .catch(error => {
+                    console.error('Ошибка проверки избранного:', error);
+                });
+            }
+
+            // Вызываем проверку при загрузке
+            checkFavoriteStatus();
+
+            // Обработчик клика по кнопке "В избранное"
+            newFavoriteBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                if (isProcessingFavorite) {
+                    console.log('Favorite request already in progress');
+                    return;
+                }
+
+                const videoId = this.dataset.videoId;
+                const wasFavorited = this.classList.contains('liked');
+                const originalHtml = this.innerHTML;
+
+                isProcessingFavorite = true;
+                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>...</span>';
+                this.disabled = true;
+
+                console.log('Toggling favorite for video:', videoId);
+
+                fetch(`/favorite/${videoId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin'
+                })
+                .then(async res => {
+                    const data = await res.json();
+                    console.log('Favorite response:', data);
+                    if (!res.ok) {
+                        throw new Error(data.error || `HTTP error! status: ${res.status}`);
+                    }
+                    return data;
+                })
+                .then(data => {
+                    window.updateFavoriteButton(data.favorited, data.favorites_count);
+                    if (data.favorited) {
+                        window.showNotification('⭐ ' + (data.message || 'Добавлено в избранное'), 'success');
+                    } else {
+                        window.showNotification(data.message || 'Удалено из избранного', 'info');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error toggling favorite:', error);
+                    window.showNotification(error.message || 'Ошибка при добавлении в избранное', 'error');
+                    this.innerHTML = originalHtml;
+                    if (wasFavorited) {
+                        this.classList.add('liked');
+                    } else {
+                        this.classList.remove('liked');
+                    }
+                })
+                .finally(() => {
+                    this.disabled = false;
+                    isProcessingFavorite = false;
+                });
+            });
+        }
+
+        // Функция для обновления счетчика избранного в сайдбаре
+        function updateFavoriteBadge(count) {
+            const favoriteLinks = document.querySelectorAll('.sidebar-menu a[href*="playlist"][href*="Избранное"], .sidebar-menu a[href*="favorites"]');
+
+            favoriteLinks.forEach(link => {
+                let badge = link.querySelector('.badge');
+
+                if (count > 0) {
+                    if (badge) {
+                        badge.textContent = count;
+                    } else {
+                        badge = document.createElement('span');
+                        badge.className = 'badge';
+                        badge.textContent = count;
+                        link.appendChild(badge);
+                    }
+                } else {
+                    if (badge) {
+                        badge.remove();
+                    }
+                }
+            });
+        }
+
+        // ===== ДОБАВЛЕНИЕ В ПЛЕЙЛИСТ =====
+        const playlistBtn = document.getElementById('playlist-btn');
+        const playlistModal = document.getElementById('playlist-modal');
+        const playlistsContainer = document.getElementById('playlists-container');
+
+        if (playlistBtn && playlistModal) {
+            const newPlaylistBtn = playlistBtn.cloneNode(true);
+            playlistBtn.parentNode.replaceChild(newPlaylistBtn, playlistBtn);
+
+            newPlaylistBtn.addEventListener('click', function() {
+                const videoId = this.dataset.videoId || currentVideoId;
+                loadPlaylists(videoId);
+                playlistModal.style.display = 'block';
+            });
+        }
+
+        // Загрузка списка плейлистов
+        function loadPlaylists(videoId) {
+            if (!playlistsContainer) return;
+
+            playlistsContainer.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Загрузка плейлистов...</div>';
+
+            fetch('/api/user/playlists')
+                .then(response => response.json())
+                .then(playlists => {
+                    if (playlists.length === 0) {
+                        playlistsContainer.innerHTML = `
+                            <div class="empty-playlists">
+                                <i class="fas fa-list"></i>
+                                <p>У вас пока нет плейлистов</p>
+                                <a href="{{ url_for('playlists') }}" class="btn btn-primary btn-small">
+                                    <i class="fas fa-plus"></i> Создать плейлист
+                                </a>
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    fetch(`/api/playlist/check_video/${videoId}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            const playlistIds = data.playlist_ids || [];
+                            renderPlaylists(playlists, playlistIds, videoId);
+                        })
+                        .catch(() => {
+                            renderPlaylists(playlists, [], videoId);
+                        });
+                })
+                .catch(error => {
+                    console.error('Ошибка загрузки плейлистов:', error);
+                    playlistsContainer.innerHTML = `
+                        <div class="empty-playlists">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <p>Ошибка при загрузке плейлистов</p>
+                        </div>
+                    `;
+                });
+        }
+
+        // Отображение списка плейлистов
+        function renderPlaylists(playlists, existingInPlaylists, videoId) {
+            let html = '';
+
+            // Находим плейлист "Избранное"
+            const favoritePlaylist = playlists.find(p => p.name === "Избранное");
+            const isInFavorite = favoritePlaylist ? existingInPlaylists.includes(favoritePlaylist.id) : false;
+
+            playlists.forEach(playlist => {
+                const isAdded = existingInPlaylists.includes(playlist.id);
+                const visibilityIcon = playlist.is_public ? 'fa-globe' : 'fa-lock';
+                const visibilityText = playlist.is_public ? 'Публичный' : 'Приватный';
+
+                html += `
+                    <div class="playlist-item" data-playlist-id="${playlist.id}" data-playlist-name="${escapeHtml(playlist.name)}">
+                        <div class="playlist-item-info">
+                            <div class="playlist-item-name">${escapeHtml(playlist.name)}</div>
+                            <div class="playlist-item-meta">
+                                <span><i class="fas fa-video"></i> ${playlist.video_count} видео</span>
+                                <span class="playlist-item-visibility">
+                                    <i class="fas ${visibilityIcon}"></i> ${visibilityText}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="playlist-item-actions">
+                            <button class="btn-add-to-playlist ${isAdded ? 'added' : ''}"
+                                    data-playlist-id="${playlist.id}"
+                                    data-playlist-name="${escapeHtml(playlist.name)}"
+                                    ${isAdded ? 'disabled' : ''}>
+                                ${isAdded ? 'Добавлено' : 'Добавить'}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            playlistsContainer.innerHTML = html;
+
+            document.querySelectorAll('.btn-add-to-playlist:not(.added)').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const playlistId = this.dataset.playlistId;
+                    const playlistName = this.dataset.playlistName;
+                    const playlistItem = this.closest('.playlist-item');
+                    const isFavoritePlaylist = playlistName === "Избранное";
+
+                    addVideoToPlaylist(playlistId, playlistName, this, isFavoritePlaylist);
+                });
+            });
+        }
+
+        // Добавление видео в плейлист
+        function addVideoToPlaylist(playlistId, playlistName, button, isFavoritePlaylist = false) {
+            const originalText = button.innerHTML;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            button.disabled = true;
+
+            fetch(`/playlist/${playlistId}/add_video`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ video_id: currentVideoId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    button.innerHTML = 'Добавлено';
+                    button.classList.add('added');
+                    button.disabled = true;
+                    window.showNotification(data.message || `Видео добавлено в плейлист "${playlistName}"`, 'success');
+
+                    // Если это плейлист "Избранное", обновляем кнопку избранного на странице
+                    if (isFavoritePlaylist) {
+                        console.log('Video added to favorite playlist, updating button...');
+                        if (window.updateFavoriteButton) {
+                            window.updateFavoriteButton(true);
+                        }
+                        // Также обновляем счетчик в сайдбаре
+                        fetch(`/api/check-favorite/${currentVideoId}`)
+                            .then(res => res.json())
+                            .then(data => {
+                                if (data.is_favorite) {
+                                    updateFavoriteBadge(undefined); // Обновим при следующем запросе
+                                }
+                            });
+                    }
+                } else {
+                    button.innerHTML = originalText;
+                    button.disabled = false;
+                    window.showNotification(data.error || 'Ошибка при добавлении', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                button.innerHTML = originalText;
+                button.disabled = false;
+                window.showNotification('Ошибка сети', 'error');
+            });
+        }
+
+        // Переопределяем функцию удаления из плейлиста в модальном окне
+        // Нужно также обновлять кнопку при удалении из избранного
+        function updateFavoriteButtonAfterRemoval() {
+            // Проверяем текущий статус избранного
+            fetch(`/api/check-favorite/${currentVideoId}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (window.updateFavoriteButton) {
+                        window.updateFavoriteButton(data.is_favorite);
+                    }
+                });
+        }
+
+        // Добавляем слушатель для обновления после удаления из плейлиста избранное
+        window.addEventListener('message', function(event) {
+            if (event.data && event.data.type === 'favorite-updated') {
+                if (window.updateFavoriteButton) {
+                    window.updateFavoriteButton(event.data.isFavorite);
+                }
+            }
+        });
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        window.closePlaylistModal = function() {
+            if (playlistModal) {
+                playlistModal.style.display = 'none';
+            }
+        };
+
+        window.addEventListener('click', (e) => {
+            if (e.target === playlistModal) {
+                closePlaylistModal();
+            }
+        });
+
+        // ===== ДОБАВЛЕНИЕ В ИСТОРИЮ =====
+        const videoPlayer = document.getElementById('main-video');
+        if (videoPlayer && {{ 'true' if current_user.is_authenticated else 'false' }}) {
+            let historyAdded = false;
+            videoPlayer.addEventListener('play', function() {
+                if (!historyAdded) {
+                    fetch(`/api/add_to_history/${currentVideoId}`, { method: 'POST' })
+                        .then(() => { historyAdded = true; })
+                        .catch(error => console.error('Ошибка добавления в историю:', error));
+                }
+            });
+        }
+
+        // ===== КОММЕНТАРИИ =====
+        const commentForm = document.getElementById('comment-form');
+        if (commentForm) {
+            const newForm = commentForm.cloneNode(true);
+            commentForm.parentNode.replaceChild(newForm, commentForm);
+
+            newForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+
+                if (isSubmitting) return;
+
+                const videoId = this.getAttribute('data-video-id');
+                const commentInput = document.getElementById('comment-input');
+                const commentText = commentInput.value.trim();
+                const submitButton = this.querySelector('button[type="submit"]');
+
+                if (!commentText) {
+                    window.showNotification('Введите текст комментария', 'warning');
+                    return;
+                }
+
+                isSubmitting = true;
+                const originalText = submitButton.innerHTML;
+                submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Отправка...';
+                submitButton.disabled = true;
+
+                const formData = new FormData();
+                formData.append('content', commentText);
+
+                fetch(`/comment/${videoId}`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.comment) {
+                        const commentsList = document.getElementById('comments-list');
+                        const commentsCount = document.getElementById('comments-count');
+
+                        const commentItem = document.createElement('div');
+                        commentItem.className = 'comment-item';
+                        commentItem.innerHTML = `
+                            <a href="/profile/${data.comment.author.username}" class="comment-avatar">
+                                <img src="${data.comment.author.avatar}" alt="${data.comment.author.username}"
+                                     onerror="this.src='{{ url_for('uploaded_thumbnail', filename='default_avatar.png') }}'">
+                            </a>
+                            <div class="comment-content">
+                                <div class="comment-header">
+                                    <a href="/profile/${data.comment.author.username}" class="comment-author">
+                                        ${escapeHtml(data.comment.author.username)}
+                                    </a>
+                                    <span class="comment-date">${escapeHtml(data.comment.created_at)}</span>
+                                </div>
+                                <p class="comment-text">${escapeHtml(data.comment.content)}</p>
+                            </div>
+                        `;
+
+                        const noComments = commentsList.querySelector('.no-comments');
+                        if (noComments) {
+                            noComments.remove();
+                        }
+
+                        if (commentsList.firstChild) {
+                            commentsList.insertBefore(commentItem, commentsList.firstChild);
+                        } else {
+                            commentsList.appendChild(commentItem);
+                        }
+
+                        if (commentsCount) {
+                            const currentCount = parseInt(commentsCount.textContent) || 0;
+                            commentsCount.textContent = currentCount + 1;
+                        }
+
+                        commentInput.value = '';
+                        window.showNotification('Комментарий добавлен', 'success');
+                    } else {
+                        window.showNotification(data.error || 'Ошибка при добавлении комментария', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    window.showNotification('Ошибка при добавлении комментария', 'error');
+                })
+                .finally(() => {
+                    isSubmitting = false;
+                    submitButton.innerHTML = originalText;
+                    submitButton.disabled = false;
+                });
+            });
+        }
+
+        // ===== ПОДЕЛИТЬСЯ =====
+        const shareBtn = document.getElementById('share-btn');
+        if (shareBtn) {
+            const newShareBtn = shareBtn.cloneNode(true);
+            shareBtn.parentNode.replaceChild(newShareBtn, shareBtn);
+
+            newShareBtn.addEventListener('click', function() {
+                const url = window.location.href;
+                navigator.clipboard.writeText(url)
+                    .then(() => {
+                        window.showNotification('🔗 Ссылка скопирована в буфер обмена!', 'success');
+                    })
+                    .catch(err => {
+                        console.error('Ошибка при копировании: ', err);
+                        window.showNotification('Ошибка при копировании ссылки', 'error');
+                    });
+            });
+        }
+    });
+})();
+</script>
+{% endblock %}
