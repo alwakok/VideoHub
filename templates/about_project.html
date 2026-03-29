@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block title %}VideoHUB - О проекте{% endblock %}
+
+{% block content %}
+<div class="info-page">
+    <div class="info-header">
+        <h1><i class="fas fa-info-circle"></i> О проекте</h1>
+        <p>Всё о платформе VideoHUB</p>
+    </div>
+
+    <div class="info-grid">
+        <!-- О сервисе -->
+        <div class="info-card">
+            <div class="info-icon">
+                <i class="fas fa-play-circle"></i>
+            </div>
+            <h2>О сервисе</h2>
+            <p>VideoHUB — это современная видеоплатформа, где каждый может загружать, смотреть и делиться видео. Мы стремимся создать лучшее сообщество для создателей контента и зрителей.</p>
+            <a href="#" class="btn btn-primary">Подробнее о сервисе</a>
+        </div>
+
+        <!-- Авторские права -->
+        <div class="info-card">
+            <div class="info-icon">
+                <i class="fas fa-copyright"></i>
+            </div>
+            <h2>Авторские права</h2>
+            <p>Мы уважаем интеллектуальную собственность и защищаем права авторов. Узнайте, как защитить свои права на платформе.</p>
+            <a href="#" class="btn btn-primary">Политика авторских прав</a>
+        </div>
+
+        <!-- Связаться с нами -->
+        <div class="info-card">
+            <div class="info-icon">
+                <i class="fas fa-envelope"></i>
+            </div>
+            <h2>Связаться с нами</h2>
+            <ul class="contact-list">
+                <li><i class="fas fa-envelope"></i> <strong>Общие вопросы:</strong> info@videohub.ru</li>
+                <li><i class="fas fa-question-circle"></i> <strong>Поддержка:</strong> help@videohub.ru</li>
+                <li><i class="fas fa-flag"></i> <strong>Жалобы:</strong> abuse@videohub.ru</li>
+            </ul>
+            <a href="#" class="btn btn-primary">Форма обратной связи</a>
+        </div>
+
+        <!-- Авторам -->
+        <div class="info-card">
+            <div class="info-icon">
+                <i class="fas fa-star"></i>
+            </div>
+            <h2>Авторам</h2>
+            <p>Создавайте контент, развивайте свой канал и зарабатывайте на VideoHUB.</p>
+            <ul class="feature-list">
+                <li><i class="fas fa-check"></i> Партнерская программа</li>
+                <li><i class="fas fa-check"></i> Детальная статистика</li>
+                <li><i class="fas fa-check"></i> Инструменты для роста</li>
+            </ul>
+            <a href="{{ url_for('upload') }}" class="btn btn-primary">Начать загружать видео</a>
+        </div>
+    </div>
+</div>
+
+<style>
+.info-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 30px 0;
+}
+
+.info-header {
+    text-align: center;
+    margin-bottom: 50px;
+}
+
+.info-header h1 {
+    font-size: 36px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    color: var(--text-dark);
+}
+
+.info-header h1 i {
+    color: var(--primary);
+}
+
+.info-header p {
+    font-size: 18px;
+    color: var(--text-light);
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 30px;
+}
+
+@media (max-width: 768px) {
+    .info-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.info-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 30px;
+    box-shadow: var(--shadow);
+}
+
+.info-icon {
+    width: 60px;
+    height: 60px;
+    background: var(--primary);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.info-icon i {
+    font-size: 28px;
+    color: white;
+}
+
+.info-card h2 {
+    font-size: 24px;
+    margin-bottom: 15px;
+    color: var(--text-dark);
+}
+
+.info-card p {
+    color: var(--text);
+    line-height: 1.6;
+    margin-bottom: 20px;
+}
+
+.contact-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 20px;
+}
+
+.contact-list li {
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text);
+}
+
+.contact-list i {
+    width: 20px;
+    color: var(--primary);
+}
+
+.feature-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 25px;
+}
+
+.feature-list li {
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text);
+}
+
+.feature-list i {
+    color: var(--success);
+}
+</style>
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}VideoHUB - Подписки{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-user-friends"></i> Мои подписки</h1>
+    <p>Каналы, на которые вы подписаны</p>
+</div>
+
+{% if current_user.is_authenticated %}
+    {% if channels %}
+        <div class="channels-grid">
+            {% for channel in channels %}
+            <div class="channel-card">
+                <a href="{{ url_for('profile', username=channel.username) }}" class="channel-avatar">
+                    <img src="{{ url_for('uploaded_thumbnail', filename=channel.avatar) }}" alt="{{ channel.username }}">
+                </a>
+                <div class="channel-info">
+                    <h3 class="channel-name">
+                        <a href="{{ url_for('profile', username=channel.username) }}">{{ channel.username }}</a>
+                    </h3>
+                    <p class="channel-stats">
+                        {{ channel.videos|length }} видео
+                    </p>
+                    <button class="btn btn-small unsubscribe-btn" data-channel-id="{{ channel.id }}">
+                        Отписаться
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <i class="fas fa-user-friends fa-3x"></i>
+            <h3>У вас нет подписок</h3>
+            <p>Подписывайтесь на интересных авторов, чтобы следить за их новыми видео</p>
+            <a href="{{ url_for('index') }}" class="btn btn-primary">
+                <i class="fas fa-search"></i> Найти авторов
+            </a>
+        </div>
+    {% endif %}
+{% else %}
+<div class="empty-state">
+    <i class="fas fa-user-friends fa-3x"></i>
+    <h3>Войдите для доступа к подпискам</h3>
+    <p>Авторизуйтесь, чтобы управлять своими подписками</p>
+    <a href="{{ url_for('login') }}" class="btn btn-primary">
+        <i class="fas fa-sign-in-alt"></i> Войти
+    </a>
+</div>
+{% endif %}
+{% endblock %}
