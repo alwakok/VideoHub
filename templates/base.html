@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}VideoHUB{% endblock %}</title>
+
+    <!-- КРИТИЧЕСКИЙ СКРИПТ ДЛЯ ТЕМЫ (самый первый) -->
+    <script>
+        (function() {
+            let theme = localStorage.getItem('theme');
+            if (!theme) {
+                theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+            if (theme === 'dark') {
+                document.documentElement.classList.add('dark-theme');
+            } else {
+                document.documentElement.classList.remove('dark-theme');
+            }
+            window.__theme = theme;
+        })();
+    </script>
+
+    <!-- Минимальные стили для предотвращения белого фона -->
+    <style>
+        * {
+            transition: none !important;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #F2F3F4;
+            color: #333333;
+        }
+        html.dark-theme body {
+            background-color: #121212 !important;
+            color: #E0E0E0 !important;
+        }
+        /* Базовые стили для тёмной темы на основных элементах (чтобы не было вспышки) */
+        html.dark-theme .navbar,
+        html.dark-theme .sidebar,
+        html.dark-theme .video-card,
+        html.dark-theme .profile-header,
+        html.dark-theme .comments-section,
+        html.dark-theme .footer,
+        html.dark-theme .auth-container,
+        html.dark-theme .upload-container,
+        html.dark-theme .edit-profile-container,
+        html.dark-theme .edit-video-container,
+        html.dark-theme .search-header,
+        html.dark-theme .search-tips,
+        html.dark-theme .no-results,
+        html.dark-theme .modal-content,
+        html.dark-theme .dropdown,
+        html.dark-theme .guest-settings-modal,
+        html.dark-theme .playlist-card,
+        html.dark-theme .channel-card,
+        html.dark-theme .playlist-header,
+        html.dark-theme .video-info-container {
+            background-color: #1E1E1E !important;
+            border-color: #333333 !important;
+        }
+        html.dark-theme input,
+        html.dark-theme textarea,
+        html.dark-theme select {
+            background-color: #121212 !important;
+            color: #E0E0E0 !important;
+            border-color: #333333 !important;
+        }
+        html.dark-theme .btn-action,
+        html.dark-theme .filter-btn,
+        html.dark-theme .tab-btn {
+            background-color: #2C2C2C !important;
+            color: #E0E0E0 !important;
+        }
+        html.dark-theme .sidebar-link {
+            color: #E0E0E0 !important;
+        }
+        html.dark-theme .sidebar-link.active {
+            background-color: #BB86FC !important;
+            color: white !important;
+        }
+
+
+    .guest-menu {
+    position: relative;
+    }
+    .guest-settings-modal {
+        display: none;
+        position: absolute;
+        top: 100%;
+        right: 0;
+        background: var(--card);
+        box-shadow: var(--shadow);
+        border-radius: var(--radius);
+        min-width: 220px;
+        z-index: 1000;
+        margin-top: 10px;
+        border: 1px solid var(--border);
+    }
+    .guest-settings-modal.active { display: block; }
+    .btn-settings {
+        background: transparent;
+        border: none;
+        font-size: 20px;
+        cursor: pointer;
+        padding: 8px;
+        color: var(--text-dark);
+        transition: all 0.3s;
+    }
+    .btn-settings:hover {
+        color: var(--primary);
+        transform: rotate(30deg);
+    }
+    .settings-content { padding: 15px; }
+    .settings-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 15px;
+    }
+    .settings-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        color: var(--text-dark);
+    }
+    .switch {
+        position: relative;
+        display: inline-block;
+        width: 50px;
+        height: 24px;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background-color: #ccc;
+        transition: .3s;
+        border-radius: 24px;
+    }
+    .slider:before {
+        position: absolute;
+        content: "";
+        height: 18px;
+        width: 18px;
+        left: 3px;
+        bottom: 3px;
+        background-color: white;
+        transition: .3s;
+        border-radius: 50%;
+    }
+    input:checked + .slider { background-color: var(--primary); }
+    input:checked + .slider:before { transform: translateX(26px); }
+    html.dark-theme .slider { background-color: #555; }
+    </style>
+
+    <!-- Основные CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/layout.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/pages.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+
+    <!-- Font Awesome и Google Fonts -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+
+<body class="{% if request.endpoint != 'video_detail' %}has-sidebar{% endif %}">
+
+    {% if current_user.is_authenticated and current_user.is_banned_active() %}
+    <!-- Для забаненных показываем только простую навигацию -->
+    <nav class="navbar">
+        <div class="container">
+            <a href="{{ url_for('index') }}" class="logo">
+                <i class="fas fa-play-circle"></i>
+                <span>VideoHUB</span>
+            </a>
+            <div class="nav-links">
+                <div class="user-menu">
+                    <div class="user-avatar">
+                        <img src="{{ url_for('uploaded_thumbnail', filename=current_user.avatar) }}"
+                             alt="{{ current_user.username }}"
+                             onerror="this.src='{{ url_for('uploaded_thumbnail', filename='default_avatar.png') }}'">
+                    </div>
+                    <div class="dropdown">
+                        <a href="{{ url_for('banned') }}">
+                            <i class="fas fa-info-circle"></i> Статус бана
+                        </a>
+                        <a href="{{ url_for('logout') }}">
+                            <i class="fas fa-sign-out-alt"></i> Выйти
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+    {% else %}
+    <!-- Обычная навигация -->
+    <nav class="navbar">
+        <div class="container">
+            <a href="{{ url_for('index') }}" class="logo">
+                <i class="fas fa-play-circle"></i>
+                <span>VideoHUB</span>
+            </a>
+
+            <div class="search-bar">
+                <form action="{{ url_for('search') }}" method="GET">
+                    <input type="text" name="q" placeholder="Поиск видео..." value="{{ request.args.get('q', '') }}">
+                    <button type="submit"><i class="fas fa-search"></i></button>
+                </form>
+            </div>
+
+            <div class="nav-links">
+                <button class="mobile-search-toggle" id="mobile-search-toggle">
+                    <i class="fas fa-search"></i>
+                </button>
+
+                {% if not current_user.is_authenticated %}
+                    <div class="guest-menu">
+                        <button class="btn-settings" id="guest-settings-btn">
+                            <i class="fas fa-cog"></i>
+                        </button>
+                        <a href="{{ url_for('login') }}" class="btn btn-primary btn-login">Войти</a>
+
+                        <div class="guest-settings-modal" id="guest-settings-modal">
+                            <div class="settings-content">
+                                <div class="settings-item">
+                                    <span class="settings-label">
+                                        <i class="fas fa-moon"></i> Тема
+                                    </span>
+                                    <label class="switch">
+                                        <input type="checkbox" id="guest-theme-toggle">
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="user-menu">
+                        <a href="{{ url_for('profile', username=current_user.username) }}" class="user-avatar">
+                            <img src="{{ url_for('uploaded_thumbnail', filename=current_user.avatar) }}"
+                                 alt="{{ current_user.username }}"
+                                 onerror="this.src='{{ url_for('uploaded_thumbnail', filename='default_avatar.png') }}'">
+                        </a>
+                        <div class="dropdown">
+                            <a href="{{ url_for('profile', username=current_user.username) }}">
+                                <i class="fas fa-user"></i> Профиль
+                            </a>
+                            <a href="{{ url_for('edit_profile') }}">
+                                <i class="fas fa-cog"></i> Настройки
+                            </a>
+                            <a href="{{ url_for('upload') }}">
+                                <i class="fas fa-upload"></i> Загрузить видео
+                            </a>
+                            {% if current_user.is_admin %}
+                            <a href="{{ url_for('admin_panel') }}">
+                                <i class="fas fa-shield-alt"></i> Админ панель
+                            </a>
+                            {% endif %}
+                            <!-- Переключатель темы для авторизованных -->
+                            <div class="theme-toggle-item">
+                                <i class="fas fa-moon"></i>
+                                <span>Ночная тема</span>
+                                <label class="theme-switch">
+                                    <input type="checkbox" id="user-theme-toggle" class="theme-checkbox">
+                                    <span class="theme-slider"></span>
+                                </label>
+                            </div>
+                            <a href="{{ url_for('logout') }}">
+                                <i class="fas fa-sign-out-alt"></i> Выйти
+                            </a>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="mobile-search" id="mobile-search">
+            <form action="{{ url_for('search') }}" method="GET">
+                <input type="text" name="q" placeholder="Поиск видео..." value="{{ request.args.get('q', '') }}">
+                <button type="submit"><i class="fas fa-search"></i></button>
+            </form>
+        </div>
+    </nav>
+    {% endif %}
+
+    <!-- Боковая панель (не показываем забаненным и на странице видео) -->
+    {% if request.endpoint != 'video_detail' and not (current_user.is_authenticated and current_user.is_banned_active()) %}
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-content">
+            <!-- Навигация -->
+            <div class="sidebar-section">
+                <h3 class="sidebar-title">Навигация</h3>
+                <ul class="sidebar-menu">
+                    <li><a href="{{ url_for('index') }}" class="sidebar-link {% if request.endpoint == 'index' %}active{% endif %}"><i class="fas fa-home"></i><span>Главная</span></a></li>
+                    <li><a href="{{ url_for('watch_together') }}" class="sidebar-link {% if request.endpoint == 'watch_together' %}active{% endif %}"><i class="fas fa-users"></i><span>Совместный просмотр</span><span class="coming-soon">Скоро</span></a></li>
+                </ul>
+            </div>
+
+            <!-- Вы -->
+            <div class="sidebar-section">
+                <h3 class="sidebar-title">Вы</h3>
+                <ul class="sidebar-menu">
+                    {% if current_user.is_authenticated %}
+                        <li><a href="{{ url_for('watch_history') }}" class="sidebar-link"><i class="fas fa-history"></i><span>История</span></a></li>
+                        <li><a href="{{ url_for('playlists') }}" class="sidebar-link"><i class="fas fa-list"></i><span>Плейлисты</span>{% if current_user.playlists %}<span class="badge">{{ current_user.playlists|length }}</span>{% endif %}</a></li>
+                        {% set favorite_playlist = current_user.playlists|selectattr('name', 'equalto', 'Избранное')|first %}
+                        {% if favorite_playlist %}
+                        <li><a href="{{ url_for('playlist_detail', playlist_id=favorite_playlist.id) }}" class="sidebar-link"><i class="fas fa-star"></i><span>Избранное</span>{% if favorite_playlist.videos|length > 0 %}<span class="badge">{{ favorite_playlist.videos|length }}</span>{% endif %}</a></li>
+                        {% else %}
+                        <li><a href="{{ url_for('favorites') }}" class="sidebar-link"><i class="fas fa-star"></i><span>Избранное</span></a></li>
+                        {% endif %}
+                        <li><a href="{{ url_for('subscriptions') }}" class="sidebar-link"><i class="fas fa-user-friends"></i><span>Подписки</span></a></li>
+                    {% else %}
+                        <li><a href="{{ url_for('login') }}" class="sidebar-link"><i class="fas fa-history"></i><span>История</span></a></li>
+                        <li><a href="{{ url_for('login') }}" class="sidebar-link"><i class="fas fa-list"></i><span>Плейлисты</span></a></li>
+                        <li><a href="{{ url_for('login') }}" class="sidebar-link"><i class="fas fa-star"></i><span>Избранное</span></a></li>
+                        <li><a href="{{ url_for('login') }}" class="sidebar-link"><i class="fas fa-user-friends"></i><span>Подписки</span></a></li>
+                    {% endif %}
+                </ul>
+            </div>
+
+            <!-- Футер в сайдбаре -->
+            <div class="sidebar-footer">
+                <div class="sidebar-footer-header">
+                    <span class="sidebar-footer-main-title">О VIDEOHUB</span>
+                </div>
+                <div class="sidebar-footer-section">
+                    <ul class="sidebar-footer-menu sidebar-footer-menu-bold">
+                        <li><a href="{{ url_for('about_project') }}" class="sidebar-footer-link"><i class="fas fa-info-circle"></i> О проекте</a></li>
+                        <li><a href="{{ url_for('legal_info') }}" class="sidebar-footer-link"><i class="fas fa-gavel"></i> Юридическая информация</a></li>
+                        <li><a href="{{ url_for('support') }}" class="sidebar-footer-link"><i class="fas fa-headset"></i> Поддержка и сотрудничество</a></li>
+                    </ul>
+                </div>
+                <div class="sidebar-footer-copyright"><p>&copy; 2026 VideoHUB. Все права защищены.</p></div>
+            </div>
+        </div>
+    </aside>
+    {% endif %}
+
+    <main class="main-content {% if request.endpoint == 'video_detail' %}video-page-content{% endif %}">
+        <div class="container">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <!-- Основной скрипт -->
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+<script>
+    window.addEventListener('load', function() {
+        document.body.classList.add('transitions-enabled');
+    });
+    window.currentUser = {
+        is_authenticated: {{ 'true' if current_user.is_authenticated else 'false' }},
+        id: {{ current_user.id if current_user.is_authenticated else 'null' }},
+        username: '{{ current_user.username if current_user.is_authenticated else '' }}'
+    };
+</script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
